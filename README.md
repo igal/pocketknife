@@ -74,11 +74,12 @@ Optionally specify credentials for your new node using [YAML](http://www.yaml.or
     henrietta:
         hostname: fnp90.swa.gov.it
 
-Next, install `chef` on the remote machine. In the future, `pocketknife` may do this automagically for you.
 
 Finally, deploy your configuration to the remote machine and see the results. For example, lets deploy the above configuration to `henrietta`:
 
     pocketknife henrietta
+
+Applying a configuration to a node will cause `pocketknife` to check whether `chef` is installed. It it's not present, it will prompt you for whether you'd like to have it automatically installed. You can run `pocketknife -i` to always install chef without prompting if its needed, or run `pocketknife -I` to never install chef automatically if its needed and just quit.
 
 If something went wrong while applying the configuration, you may want to view `chef`'s verbose logging information by applying the configurations with the `-v` option. For example, apply the configuration to `henrietta` with verbose logging:
 

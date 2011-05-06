@@ -79,6 +79,18 @@ class Pocketknife
     end
   end
 
+  # == UnsupportedInstallationPlatform
+  #
+  # Exception raised when asked to install Chef on an unsupported platform.
+  class UnsupportedInstallationPlatform < StandardError
+  end
+
+  # == NotInstalling
+  #
+  # Exception raised when Chef is not available, but user asked not to install it.
+  class NotInstalling < StandardError
+  end
+
   # Runs the interpreter using arguments provided by the command-line.
   #
   # Example:
@@ -129,6 +141,14 @@ OPTIONS:
         pocketknife.quiet = true
       end
 
+      parser.on("-i", "--install", "Install Chef automatically") do |v|
+        pocketknife.can_install = true
+      end
+
+      parser.on("-I", "--noinstall", "Don't install Chef automatically") do |v|
+        pocketknife.can_install = false
+      end
+
       begin
         arguments = parser.parse!
       rescue OptionParser::MissingArgument => e
@@ -138,17 +158,17 @@ OPTIONS:
         exit -1
       end
 
-      begin
-        display = lambda do |node, success, error|
-          if success
-            puts "* #{node}: #{success}"
-          elsif error
-            puts "! #{node}: #{error}"
-          else
-            # Ignore
-          end
+      display = lambda do |node, success, error|
+        if success
+          puts "* #{node}: #{success}"
+        elsif error
+          puts "! #{node}: #{error}"
+        else
+          # Ignore
         end
+      end
 
+      begin
         if options[:upload]
           pocketknife.upload(arguments, &display)
         end
@@ -160,7 +180,7 @@ OPTIONS:
         if not options[:upload] and not options[:apply]
           pocketknife.upload_and_apply(arguments, &display)
         end
-      rescue NoSuchNode => e
+      rescue NoSuchNode, NotInstalling, UnsupportedInstallationPlatform => e
         puts "! #{e}"
         exit -1
       end
@@ -179,6 +199,9 @@ OPTIONS:
 
   # Run verbosely? If true, run chef with the debugging level logger.
   attr_accessor :verbose
+
+  # Can chef and its dependencies be installed automatically if not found? true means perform installation without prompting, false means quit if chef isn't available, and nil means prompt the user for input.
+  attr_accessor :can_install
 
   # Instantiate a new Pocketknife.
   def initialize
@@ -319,11 +342,14 @@ OPTIONS:
   # @yieldparam [String] success A message indicating success.
   # @yieldparam [String] error A message indicating error.
   # @raise [NoSuchNode] Raised if asked to operate on an unknown node.
+  # @raise [UnsupportedInstallationPlatform] Raised if there's no installation information for this platform.
   def apply(nodes, &block)
     assert_known_nodes(nodes)
 
     for node in nodes
       rye = rye_for(node)
+
+      install_node(node, rye, &block)
 
       yield(node, "Applying configuration") if block && ! quiet
       command = "chef-solo -j #{NODE_JSON}"
@@ -334,6 +360,118 @@ OPTIONS:
       yield(node, "Finished applying!") if block && ! quiet
 
       rye.disconnect
+    end
+  end
+
+  # Installs Chef and its dependencies on a node if needed.
+  #
+  # @param [Array<String>] node A node name.
+  # @param [Rye::Box] rye A Rye::Box connection.
+  # @yield [node, success, error] Yields status information to the optionally supplied block.
+  # @yieldparam [String] node The name of the node.
+  # @yieldparam [String] success A message indicating success.
+  # @yieldparam [String] error A message indicating error.
+  def install_node(node, rye, &block)
+    begin
+      rye.execute("which chef && test -x `which chef`")
+    rescue Rye::Err
+      case can_install
+      when nil
+        # Prompt for installation
+        print "? #{node}: Chef not found. Install it and its dependencies? (Y/n) "
+        STDOUT.flush
+        answer = STDIN.gets.chomp
+        case answer
+        when /^y/i, ''
+          # Continue with install
+        else
+          raise NotInstalling, "Chef isn't installed, but user doesn't want to install it."
+        end
+      when true
+        # User wanted us to install
+      else
+        # Don't install
+        raise NotInstalling, "Chef isn't installed, but user doesn't want to install it."
+      end
+
+      platform = platform_node(node, rye)
+
+      begin
+        rye.execute("which ruby && test -x `which ruby`")
+      rescue Rye::Err
+        # Install ruby
+        command = \
+          case platform[:distributor].downcase
+          when /ubuntu/, /debian/, /gnu\/linux/
+            "DEBIAN_FRONTEND=noninteractive apt-get --yes install ruby ruby-dev libopenssl-ruby irb build-essential wget ssl-cert"
+          when /centos/, /red hat/, /scientific linux/
+            "yum -y install ruby ruby-shadow gcc gcc-c++ ruby-devel wget"
+          else
+            raise UnsupportedInstallationPlatform, "Can't install on node with unknown distrubtor: `#{platform[:distrubtor]}`"
+          end
+
+        yield(node, "Installing ruby") if block && ! quiet
+        output = rye.execute(command)
+        yield(node, "Installed ruby:\n#{output}") if block && ! quiet
+      end
+
+      begin
+        rye.execute("which gem && test -x `which gem`")
+      rescue Rye::Err
+        # Install gem
+        command = <<-HERE
+          cd /root &&
+            rm -rf rubygems-1.3.7 rubygems-1.3.7.tgz &&
+            wget http://production.cf.rubygems.org/rubygems/rubygems-1.3.7.tgz &&
+            tar zxf rubygems-1.3.7.tgz &&
+            cd rubygems-1.3.7 &&
+            ruby setup.rb --no-format-executable &&
+            rm -rf rubygems-1.3.7 rubygems-1.3.7.tgz
+        HERE
+        yield(node, "Installing rubygems") if block && ! quiet
+        output = rye.execute(command)
+        yield(node, "Installed rubygems:\n#{output}") if block && ! quiet
+      end
+
+      # Install chef
+      command = "gem install --no-rdoc --no-ri chef"
+      yield(node, "Installing chef") if block && ! quiet
+      output = rye.execute(command)
+      yield(node, "Installed chef:\n#{output}") if block && ! quiet
+    end
+  end
+
+  # Returns information describing the node.
+  #
+  # The information is formatted similar to this:
+  #   {
+  #     :distributor=>"Ubuntu", # String with distributor name
+  #     :codename=>"maverick", # String with release codename
+  #     :release=>"10.10", # String with release number
+  #     :version=>10.1 # Float with release number
+  #   }
+  #
+  # @param [String] node The node name.
+  # @param [Rye::Box] rye A Rye::Box connection.
+  # @return [Hash<String, Object] Return a hash describing the node, see above.
+  # @raise [UnsupportedInstallationPlatform] Raised if there's no installation information for this platform.
+  def platform_node(node, rye)
+    lsb_release = "/etc/lsb-release"
+    begin
+      output = rye.cat(lsb_release).to_s
+      result = {}
+      result[:distributor] = output[/DISTRIB_ID\s*=\s*(.+?)$/, 1]
+      result[:release] = output[/DISTRIB_RELEASE\s*=\s*(.+?)$/, 1]
+      result[:codename] = output[/DISTRIB_CODENAME\s*=\s*(.+?)$/, 1]
+      result[:version] = result[:release].to_f
+
+      if result[:distributor] && result[:release] && result[:codename] && result[:version]
+        return result
+      else
+        raise UnsupportedInstallationPlatform, "Can't install on node '#{node}' with invalid '#{lsb_release}' file"
+      end
+    rescue Rye::Err
+      raise UnsupportedInstallationPlatform, "Can't install on node '#{node}' without '#{lsb_release}'"
     end
   end
 
@@ -393,8 +531,8 @@ chef-solo -j #{NODE_JSON} "$@"
   # @param [Array<String>] nodes A list of node names.
   # @raise [NoSuchNode] Raised if there's an unknown node.
   def assert_known_nodes(nodes)
-    known = known_nodes
-    unknown = nodes - known
+    @known ||= known_nodes
+    unknown = nodes - @known
 
     unless unknown.empty?
       raise NoSuchNode.new("No configuration found for node: #{unknown.first}" , unknown.first)

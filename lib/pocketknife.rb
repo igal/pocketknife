@@ -36,7 +36,6 @@ class Pocketknife
     #   NoMethodError Exception: undefined method `to_hash' for false:FalseClass
     #
     # @return [Boolean] Is sane?
-    # @private
     def self._sane?
       begin
         self.to_hash
@@ -186,56 +185,41 @@ OPTIONS:
   def initialize
   end
 
-  # Returns the known node names for this project.
+  # Creates a new project directory.
   #
-  # @return [Array<String>] Node names.
-  def known_nodes
-    dir = Pathname.new("nodes")
-    json_extension = /\.json$/
-    if dir.directory?
-      return dir.entries.select do |path|
-        path.to_s =~ json_extension
-      end.map do |path|
-        path.to_s.sub(json_extension, "")
+  # @param [String] project The name of the project directory to create.
+  # @yield [path] Yields status information to the optionally supplied block.
+  # @yieldparam [String] path The path of the file or directory created.
+  def create(project, &block)
+    dir = Pathname.new(project)
+
+    %w[
+      nodes
+      roles
+      cookbooks
+      site-cookbooks
+    ].each do |subdir|
+      target = (dir + subdir)
+      unless target.exist?
+        FileUtils.mkdir_p(target)
+        yield(target.to_s) if block
       end
-    else
-      raise Errno::ENOENT, "Can't find 'nodes' directory."
     end
+
+    settings_yml = (dir + "settings.yml")
+    unless settings_yml.exist?
+      settings_yml.open("w") {}
+      yield(settings_yml.to_s) if block
+    end
+
+    return true
   end
 
-  # @private
-  ETC_CHEF = Pathname.new("/etc/chef")
-  # @private
-  SOLO_RB = ETC_CHEF + "solo.rb"
-  # @private
-  NODE_JSON = ETC_CHEF + "node.json"
-  # @private
-  VAR_POCKETKNIFE = Pathname.new("/var/local/pocketknife")
-  # @private
-  VAR_POCKETKNIFE_CACHE = VAR_POCKETKNIFE + "cache"
-  # @private
-  VAR_POCKETKNIFE_TARBALL = VAR_POCKETKNIFE_CACHE + "/pocketknife.tmp"
-  # @private
-  VAR_POCKETKNIFE_COOKBOOKS = VAR_POCKETKNIFE + "cookbooks"
-  # @private
-  VAR_POCKETKNIFE_SITE_COOKBOOKS = VAR_POCKETKNIFE + "site-cookbooks"
-  # @private
-  VAR_POCKETKNIFE_ROLES = VAR_POCKETKNIFE + "roles"
-  # @private
-  SOLO_RB_CONTENT = <<-HERE
-file_cache_path "#{VAR_POCKETKNIFE_CACHE}"
-cookbook_path ["#{VAR_POCKETKNIFE_COOKBOOKS}", "#{VAR_POCKETKNIFE_SITE_COOKBOOKS}"]
-role_path "#{VAR_POCKETKNIFE_ROLES}"
-  HERE
-  # @private
-  CHEF_SOLO_APPLY = Pathname.new("/usr/local/sbin/chef-solo-apply")
-  # @private
-  CHEF_SOLO_APPLY_ALIAS = CHEF_SOLO_APPLY.dirname + "csa"
-  # @private
-  CHEF_SOLO_APPLY_CONTENT = <<-HERE
-#!/bin/sh
-chef-solo -j #{NODE_JSON} "$@"
-  HERE
+  # Uploads and applies configuration to the nodes, calls #upload and #apply.
+  def upload_and_apply(nodes, &block)
+    upload(nodes, &block)
+    apply(nodes, &block)
+  end
 
   # Uploads configuration information to remote nodes.
   #
@@ -354,6 +338,57 @@ chef-solo -j #{NODE_JSON} "$@"
     end
   end
 
+  # Returns the known node names for this project.
+  #
+  # @return [Array<String>] Node names.
+  def known_nodes
+    dir = Pathname.new("nodes")
+    json_extension = /\.json$/
+    if dir.directory?
+      return dir.entries.select do |path|
+        path.to_s =~ json_extension
+      end.map do |path|
+        path.to_s.sub(json_extension, "")
+      end
+    else
+      raise Errno::ENOENT, "Can't find 'nodes' directory."
+    end
+  end
+
+  # @private
+  ETC_CHEF = Pathname.new("/etc/chef")
+  # @private
+  SOLO_RB = ETC_CHEF + "solo.rb"
+  # @private
+  NODE_JSON = ETC_CHEF + "node.json"
+  # @private
+  VAR_POCKETKNIFE = Pathname.new("/var/local/pocketknife")
+  # @private
+  VAR_POCKETKNIFE_CACHE = VAR_POCKETKNIFE + "cache"
+  # @private
+  VAR_POCKETKNIFE_TARBALL = VAR_POCKETKNIFE_CACHE + "/pocketknife.tmp"
+  # @private
+  VAR_POCKETKNIFE_COOKBOOKS = VAR_POCKETKNIFE + "cookbooks"
+  # @private
+  VAR_POCKETKNIFE_SITE_COOKBOOKS = VAR_POCKETKNIFE + "site-cookbooks"
+  # @private
+  VAR_POCKETKNIFE_ROLES = VAR_POCKETKNIFE + "roles"
+  # @private
+  SOLO_RB_CONTENT = <<-HERE
+file_cache_path "#{VAR_POCKETKNIFE_CACHE}"
+cookbook_path ["#{VAR_POCKETKNIFE_COOKBOOKS}", "#{VAR_POCKETKNIFE_SITE_COOKBOOKS}"]
+role_path "#{VAR_POCKETKNIFE_ROLES}"
+  HERE
+  # @private
+  CHEF_SOLO_APPLY = Pathname.new("/usr/local/sbin/chef-solo-apply")
+  # @private
+  CHEF_SOLO_APPLY_ALIAS = CHEF_SOLO_APPLY.dirname + "csa"
+  # @private
+  CHEF_SOLO_APPLY_CONTENT = <<-HERE
+#!/bin/sh
+chef-solo -j #{NODE_JSON} "$@"
+  HERE
+
   # Asserts that the specified nodes are known to Pocketknife.
   #
   # @param [Array<String>] nodes A list of node names.
@@ -376,42 +411,6 @@ chef-solo -j #{NODE_JSON} "$@"
     rye = Rye::Box.new(*credentials)
     rye.disable_safe_mode
     return rye
-  end
-
-  # Uploads and applies configuration to the nodes, calls #upload and #apply.
-  def upload_and_apply(nodes, &block)
-    upload(nodes, &block)
-    apply(nodes, &block)
-  end
-
-  # Creates a new project directory.
-  #
-  # @param [String] project The name of the project directory to create.
-  # @yield [path] Yields status information to the optionally supplied block.
-  # @yieldparam [String] path The path of the file or directory created.
-  def create(project, &block)
-    dir = Pathname.new(project)
-
-    %w[
-      nodes
-      roles
-      cookbooks
-      site-cookbooks
-    ].each do |subdir|
-      target = (dir + subdir)
-      unless target.exist?
-        FileUtils.mkdir_p(target)
-        yield(target.to_s) if block
-      end
-    end
-
-    settings_yml = (dir + "settings.yml")
-    unless settings_yml.exist?
-      settings_yml.open("w") {}
-      yield(settings_yml.to_s) if block
-    end
-
-    return true
   end
 
   # Returns a Pathname for the node's JSON file.

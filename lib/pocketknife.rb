@@ -372,9 +372,7 @@ OPTIONS:
   # @yieldparam [String] success A message indicating success.
   # @yieldparam [String] error A message indicating error.
   def install_node(node, rye, &block)
-    begin
-      rye.execute("which chef && test -x `which chef`")
-    rescue Rye::Err
+    unless node_has_executable(rye, "chef-solo")
       case can_install
       when nil
         # Prompt for installation
@@ -396,9 +394,7 @@ OPTIONS:
 
       platform = platform_node(node, rye)
 
-      begin
-        rye.execute("which ruby && test -x `which ruby`")
-      rescue Rye::Err
+      unless node_has_executable(rye, "ruby")
         # Install ruby
         command = \
           case platform[:distributor].downcase
@@ -415,9 +411,7 @@ OPTIONS:
         yield(node, "Installed ruby:\n#{output}") if block && ! is_quiet
       end
 
-      begin
-        rye.execute("which gem && test -x `which gem`")
-      rescue Rye::Err
+      unless node_has_executable(rye, "gem")
         # Install gem
         command = <<-HERE
           cd /root &&
@@ -558,5 +552,19 @@ chef-solo -j #{NODE_JSON} "$@"
   def node_json_path_for(node)
     assert_known_nodes([node])
     return Pathname.new("nodes") + "#{node}.json"
+  end
+
+  # Returns whether the remote node has the given executable.
+  #
+  # @param [Rye::Box] rye A connection.
+  # @param [String] executable A name of an executable, e.g. <tt>chef-solo</tt>.
+  # @return [Boolean] Has executable?
+  def node_has_executable(rye, executable)
+    begin
+      rye.execute(%{which "#{executable}" && test -x `which "#{executable}"`})
+      return true
+    rescue Rye::Err
+      return false
+    end
   end
 end

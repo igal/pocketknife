@@ -7,32 +7,9 @@ require "archive/tar/minitar"
 require "rye"
 require "settingslogic"
 
-# Converts the object into textual markup given a specific `format`
-# (defaults to `:html`)
+# = Pocketknife
 #
-# == Parameters:
-#
-#        asdfasdfadsf
-#
-# format::
-#   A Symbol declaring the format to convert the object to. This
-#   can be `:text` or `:html`.
-#
-# == Returns:
-#
-# A string representing the object in a specified
-# format.
-#
-# @param [String, #read] format the contents to reverse
-# @return [String] the contents reversed lexically
-def to_format(format = :html)
-  # format the object
-end
-
-# == asdf
-#
-# asdf
-#
+# For information on using `pocketknife`, please see the {file:README.md README.md} file.
 class Pocketknife
   # == Auth
   #
@@ -53,10 +30,14 @@ class Pocketknife
   class Auth < Settingslogic
     source "auth.yml"
 
-    # Workaround for Settingslogic bug where an empty file causes it to fail with:
+    # Is the Settingslogic data sane? This is used as part of a workaround for
+    # a Settingslogic bug where an empty file causes it to fail with:
+    #
     #   NoMethodError Exception: undefined method `to_hash' for false:FalseClass
-    # TODO File bug and patch for Settingslogic.
-    def self.sane?
+    #
+    # @return [Boolean] Is sane?
+    # @private
+    def self._sane?
       begin
         self.to_hash
         return true
@@ -65,8 +46,15 @@ class Pocketknife
       end
     end
 
+    # Returns credentials for the +node+.
+    #
+    # Defaults to having the hostname be the same as the node name, and `root`
+    # as the user.
+    #
+    # @param [String] node The node name.
+    # @return [String, Hash] The hostname and a hash containing `:user => USER` where USER is the name of the user.
     def self.credentials_for(node)
-      if sane? && self[node]
+      if _sane? && self[node]
         result = []
         result << self[node]["hostname"] || node
         result << {:user => self[node]["user"] || "root"}
@@ -76,16 +64,30 @@ class Pocketknife
     end
   end
 
+  # == NoSuchNode
+  #
+  # Exception raised when asked to perform an operation on an unknown node.
   class NoSuchNode < StandardError
+    # The name of the node.
     attr_accessor :node
 
+    # Instantiate a new exception.
+    #
+    # @param [String] message The message to display.
+    # @param [String] node The name of the unknown node.
     def initialize(message, node)
       self.node = node
       super(message)
     end
   end
 
-  # Execute command-line interpreter.
+  # Runs the interpreter using arguments provided by the command-line.
+  #
+  # Example:
+  #   # Display command-line help:
+  #   Pocketknife.cli('-h')
+  #
+  # @param [Array<String>] args A list of arguments from the command-line, which may include options (e.g. `-h`).
   def self.cli(args)
     pocketknife = Pocketknife.new
 
@@ -167,18 +169,26 @@ OPTIONS:
     end
   end
 
-  # Return version string.
+  # Returns the software's version.
+  #
+  # @return [String] A version string.
   def self.version
     return "0.0.1"
   end
 
+  # Run quietly? If true, only show important output.
   attr_accessor :quiet
+
+  # Run verbosely? If true, execute chef with the debugging level logger.
   attr_accessor :verbose
 
+  # Instantiate a new Pocketknife.
   def initialize
   end
 
-  # Return array of node names in this project.
+  # Returns the known node names for this project.
+  #
+  # @return [Array<String>] Node names.
   def known_nodes
     dir = Pathname.new("nodes")
     json_extension = /\.json$/
@@ -193,27 +203,48 @@ OPTIONS:
     end
   end
 
+  # @private
   ETC_CHEF = Pathname.new("/etc/chef")
+  # @private
   SOLO_RB = ETC_CHEF + "solo.rb"
+  # @private
   NODE_JSON = ETC_CHEF + "node.json"
+  # @private
   VAR_POCKETKNIFE = Pathname.new("/var/local/pocketknife")
+  # @private
   VAR_POCKETKNIFE_CACHE = VAR_POCKETKNIFE + "cache"
+  # @private
   VAR_POCKETKNIFE_TARBALL = VAR_POCKETKNIFE_CACHE + "/pocketknife.tmp"
+  # @private
   VAR_POCKETKNIFE_COOKBOOKS = VAR_POCKETKNIFE + "cookbooks"
+  # @private
   VAR_POCKETKNIFE_SITE_COOKBOOKS = VAR_POCKETKNIFE + "site-cookbooks"
+  # @private
   VAR_POCKETKNIFE_ROLES = VAR_POCKETKNIFE + "roles"
+  # @private
   SOLO_RB_CONTENT = <<-HERE
 file_cache_path "#{VAR_POCKETKNIFE_CACHE}"
 cookbook_path ["#{VAR_POCKETKNIFE_COOKBOOKS}", "#{VAR_POCKETKNIFE_SITE_COOKBOOKS}"]
 role_path "#{VAR_POCKETKNIFE_ROLES}"
   HERE
+  # @private
   CHEF_SOLO_APPLY = Pathname.new("/usr/local/sbin/chef-solo-apply")
+  # @private
   CHEF_SOLO_APPLY_ALIAS = CHEF_SOLO_APPLY.dirname + "csa"
+  # @private
   CHEF_SOLO_APPLY_CONTENT = <<-HERE
 #!/bin/sh
 chef-solo -j #{NODE_JSON} "$@"
   HERE
 
+  # Uploads configuration information to remote nodes.
+  #
+  # @param [Array<String>] nodes A list of node names.
+  # @yield [node, success, error] Yields status information to the optionally supplied block.
+  # @yieldparam [String] node The name of the node.
+  # @yieldparam [String] success A message indicating success.
+  # @yieldparam [String] error A message indicating error.
+  # @raise [NoSuchNode] Raised if asked to operate on an unknown node.
   def upload(nodes, &block)
     assert_known_nodes(nodes)
 
@@ -297,6 +328,14 @@ chef-solo -j #{NODE_JSON} "$@"
     end
   end
 
+  # Executes configurations on remote nodes.
+  #
+  # @param [Array<String>] nodes A list of node names.
+  # @yield [node, success, error] Yields status information to the optionally supplied block.
+  # @yieldparam [String] node The name of the node.
+  # @yieldparam [String] success A message indicating success.
+  # @yieldparam [String] error A message indicating error.
+  # @raise [NoSuchNode] Raised if asked to operate on an unknown node.
   def execute(nodes, &block)
     assert_known_nodes(nodes)
 
@@ -315,6 +354,10 @@ chef-solo -j #{NODE_JSON} "$@"
     end
   end
 
+  # Asserts that the specified nodes are known to Pocketknife.
+  #
+  # @param [Array<String>] nodes A list of node names.
+  # @raise [NoSuchNode] Raised if there's an unknown node.
   def assert_known_nodes(nodes)
     known = known_nodes
     unknown = nodes - known
@@ -324,6 +367,10 @@ chef-solo -j #{NODE_JSON} "$@"
     end
   end
 
+  # Returns a Rye::Box connection for the given node. The credentials are looked up through Auth.
+  #
+  # @param [String] node The node name.
+  # @return [Rye::Box] A Rye::Box connection.
   def rye_for(node)
     credentials = Auth.credentials_for(node)
     rye = Rye::Box.new(*credentials)
@@ -331,13 +378,17 @@ chef-solo -j #{NODE_JSON} "$@"
     return rye
   end
 
+  # Applies configuration to the nodes, meaning that it calls #upload and #execute.
   def apply(nodes, &block)
     upload(nodes, &block)
     execute(nodes, &block)
   end
 
-  # Create a new project directory. If block is provided, yield the name of the
-  # newly created file or directory to it.
+  # Creates a new project directory.
+  #
+  # @param [String] project The name of the project directory to create.
+  # @yield [path] Yields status information to the optionally supplied block.
+  # @yieldparam [String] path The path of the file or directory created.
   def create(project, &block)
     dir = Pathname.new(project)
 
@@ -363,7 +414,13 @@ chef-solo -j #{NODE_JSON} "$@"
     return true
   end
 
+  # Returns a Pathname for the node's JSON file.
+  #
+  # @param [String] node A node name.
+  # @return [Pathname] The JSON file.
+  # @raise [NoSuchNode] Raised if asked to operate on an unknown node.
   def node_json_path_for(node)
+    assert_known_nodes([node])
     return Pathname.new("nodes") + "#{node}.json"
   end
 end

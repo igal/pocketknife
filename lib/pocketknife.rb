@@ -9,15 +9,15 @@ require "settingslogic"
 
 # = Pocketknife
 #
-# For information on using `pocketknife`, please see the {file:README.md README.md} file.
+# For information on using +pocketknife+, please see the {file:README.md README.md} file.
 class Pocketknife
   # == Auth
   #
   # A Settingslogic class that provides authentication credentials. It looks
-  # for an `auth.yml` file, which can contain a list of nodes and their
+  # for an <tt>auth.yml</tt> file, which can contain a list of nodes and their
   # credentials. If no credentials are defined, it's assumed that the
   #
-  # Example of content in `auth.yml`:
+  # Example of content in <tt>auth.yml</tt>:
   #
   #   # When deploying to node 'henrietta', SSH into host 'fnp90.swa.gov.it':
   #   henrietta:
@@ -32,7 +32,6 @@ class Pocketknife
 
     # Is the Settingslogic data sane? This is used as part of a workaround for
     # a Settingslogic bug where an empty file causes it to fail with:
-    #
     #   NoMethodError Exception: undefined method `to_hash' for false:FalseClass
     #
     # @return [Boolean] Is sane?
@@ -45,13 +44,13 @@ class Pocketknife
       end
     end
 
-    # Returns credentials for the +node+.
+    # Returns credentials for the node.
     #
-    # Defaults to having the hostname be the same as the node name, and `root`
+    # Defaults to having the hostname be the same as the node name, and +root+
     # as the user.
     #
     # @param [String] node The node name.
-    # @return [String, Hash] The hostname and a hash containing `:user => USER` where USER is the name of the user.
+    # @return [String, Hash] The hostname and a hash containing <tt>:user => USER</tt> where USER is the name of the user.
     def self.credentials_for(node)
       if _sane? && self[node]
         result = []
@@ -86,7 +85,7 @@ class Pocketknife
   #   # Display command-line help:
   #   Pocketknife.cli('-h')
   #
-  # @param [Array<String>] args A list of arguments from the command-line, which may include options (e.g. `-h`).
+  # @param [Array<String>] args A list of arguments from the command-line, which may include options (e.g. <tt>-h</tt>).
   def self.cli(args)
     pocketknife = Pocketknife.new
 

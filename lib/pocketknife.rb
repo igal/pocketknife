@@ -115,16 +115,16 @@ OPTIONS:
         return
       end
 
-      parser.on("-v", "--verbose", "Execute chef in verbose mode") do |name|
+      parser.on("-v", "--verbose", "Run chef in verbose mode") do |name|
         pocketknife.verbose = true
       end
 
-      parser.on("-u", "--upload", "Upload configuration, but don't execute it") do |v|
+      parser.on("-u", "--upload", "Upload configuration, but don't apply it") do |v|
         options[:upload] = true
       end
 
-      parser.on("-e", "--execute", "Execute existing configuration") do |v|
-        options[:execute] = true
+      parser.on("-a", "--apply", "Runs cheef to apply already-uploaded configuration") do |v|
+        options[:apply] = true
       end
 
       parser.on("-q", "--quiet", "Run quietly, only display important information") do |v|
@@ -155,12 +155,12 @@ OPTIONS:
           pocketknife.upload(arguments, &display)
         end
 
-        if options[:execute]
-          pocketknife.execute(arguments, &display)
+        if options[:apply]
+          pocketknife.apply(arguments, &display)
         end
 
-        if not options[:upload] and not options[:execute]
-          pocketknife.apply(arguments, &display)
+        if not options[:upload] and not options[:apply]
+          pocketknife.upload_and_apply(arguments, &display)
         end
       rescue NoSuchNode => e
         puts "! #{e}"
@@ -179,7 +179,7 @@ OPTIONS:
   # Run quietly? If true, only show important output.
   attr_accessor :quiet
 
-  # Run verbosely? If true, execute chef with the debugging level logger.
+  # Run verbosely? If true, run chef with the debugging level logger.
   attr_accessor :verbose
 
   # Instantiate a new Pocketknife.
@@ -328,7 +328,7 @@ chef-solo -j #{NODE_JSON} "$@"
     end
   end
 
-  # Executes configurations on remote nodes.
+  # Applies configurations to remote nodes.
   #
   # @param [Array<String>] nodes A list of node names.
   # @yield [node, success, error] Yields status information to the optionally supplied block.
@@ -336,19 +336,19 @@ chef-solo -j #{NODE_JSON} "$@"
   # @yieldparam [String] success A message indicating success.
   # @yieldparam [String] error A message indicating error.
   # @raise [NoSuchNode] Raised if asked to operate on an unknown node.
-  def execute(nodes, &block)
+  def apply(nodes, &block)
     assert_known_nodes(nodes)
 
     for node in nodes
       rye = rye_for(node)
 
-      yield(node, "Executing configuration") if block && ! quiet
+      yield(node, "Applying configuration") if block && ! quiet
       command = "chef-solo -j #{NODE_JSON}"
       command << " -l debug" if verbose
       result = rye.execute(command)
-      yield(node, "Executed: #{command}\n#{result.stdout}") if block
+      yield(node, "Applied: #{command}\n#{result.stdout}") if block
 
-      yield(node, "Finished executing!") if block && ! quiet
+      yield(node, "Finished applying!") if block && ! quiet
 
       rye.disconnect
     end
@@ -378,10 +378,10 @@ chef-solo -j #{NODE_JSON} "$@"
     return rye
   end
 
-  # Applies configuration to the nodes, meaning that it calls #upload and #execute.
-  def apply(nodes, &block)
+  # Uploads and applies configuration to the nodes, calls #upload and #apply.
+  def upload_and_apply(nodes, &block)
     upload(nodes, &block)
-    execute(nodes, &block)
+    apply(nodes, &block)
   end
 
   # Creates a new project directory.

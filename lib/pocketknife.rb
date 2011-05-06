@@ -126,7 +126,7 @@ OPTIONS:
       end
 
       parser.on("-v", "--verbose", "Run chef in verbose mode") do |name|
-        pocketknife.verbose = true
+        pocketknife.is_verbose = true
       end
 
       parser.on("-u", "--upload", "Upload configuration, but don't apply it") do |v|
@@ -138,7 +138,7 @@ OPTIONS:
       end
 
       parser.on("-q", "--quiet", "Run quietly, only display important information") do |v|
-        pocketknife.quiet = true
+        pocketknife.is_quiet = true
       end
 
       parser.on("-i", "--install", "Install Chef automatically") do |v|
@@ -195,10 +195,10 @@ OPTIONS:
   end
 
   # Run quietly? If true, only show important output.
-  attr_accessor :quiet
+  attr_accessor :is_quiet
 
   # Run verbosely? If true, run chef with the debugging level logger.
-  attr_accessor :verbose
+  attr_accessor :is_verbose
 
   # Can chef and its dependencies be installed automatically if not found? true means perform installation without prompting, false means quit if chef isn't available, and nil means prompt the user for input.
   attr_accessor :can_install
@@ -274,7 +274,7 @@ OPTIONS:
       rescue Rye::Err
         # Ignore, this means the directory doesn't exist
       end
-      yield(node, "Creating directory: #{item}") if block && ! quiet
+      yield(node, "Creating directory: #{item}") if block && ! is_quiet
       rye.mkdir(:p, item)
 
       item = VAR_POCKETKNIFE.to_s
@@ -284,23 +284,23 @@ OPTIONS:
       rescue Rye::Err
         # Ignore, this means the directory doesn't exist
       end
-      yield(node, "Creating directory: #{item}") if block && ! quiet
+      yield(node, "Creating directory: #{item}") if block && ! is_quiet
       rye.mkdir(:p, item)
 
       item = VAR_POCKETKNIFE_CACHE.to_s
-      yield(node, "Creating directory: #{item}") if block && ! quiet
+      yield(node, "Creating directory: #{item}") if block && ! is_quiet
       rye.mkdir(:p, item)
 
-      yield(node, "Uploading file: #{SOLO_RB}") if block && ! quiet
+      yield(node, "Uploading file: #{SOLO_RB}") if block && ! is_quiet
       rye.file_upload(StringIO.new(SOLO_RB_CONTENT), SOLO_RB.to_s)
 
-      yield(node, "Uploading file: #{NODE_JSON}") if block && ! quiet
+      yield(node, "Uploading file: #{NODE_JSON}") if block && ! is_quiet
       rye.file_upload(node_json_path_for(node).to_s, NODE_JSON.to_s)
 
-      yield(node, "Uploading file: #{CHEF_SOLO_APPLY}") if block && ! quiet
+      yield(node, "Uploading file: #{CHEF_SOLO_APPLY}") if block && ! is_quiet
       rye.file_upload(StringIO.new(CHEF_SOLO_APPLY_CONTENT), CHEF_SOLO_APPLY.to_s)
 
-      yield(node, "Setting permissions: #{CHEF_SOLO_APPLY}") if block && ! quiet
+      yield(node, "Setting permissions: #{CHEF_SOLO_APPLY}") if block && ! is_quiet
       rye.chmod("u=rwx,go=", CHEF_SOLO_APPLY.to_s)
       rye.chown("root:root", CHEF_SOLO_APPLY.to_s)
 
@@ -310,11 +310,11 @@ OPTIONS:
       rescue Rye::Err
         # Ignore, this means the file doesn't exist
       end
-      yield(node, "Creating symlink: #{CHEF_SOLO_APPLY} -> #{CHEF_SOLO_APPLY_ALIAS}") if block && ! quiet
+      yield(node, "Creating symlink: #{CHEF_SOLO_APPLY} -> #{CHEF_SOLO_APPLY_ALIAS}") if block && ! is_quiet
       rye.ln(:s, CHEF_SOLO_APPLY.to_s, CHEF_SOLO_APPLY_ALIAS.to_s)
 
       item = VAR_POCKETKNIFE_TARBALL
-      yield(node, "Uploading cookbooks and roles") if block && ! quiet
+      yield(node, "Uploading cookbooks and roles") if block && ! is_quiet
       rye.file_upload(item.basename.to_s, item.to_s)
       rye[VAR_POCKETKNIFE.to_s].tar(:xf, item.to_s)
       tarball.unlink
@@ -323,12 +323,12 @@ OPTIONS:
         VAR_POCKETKNIFE,
         ETC_CHEF
       ].each do |item|
-        yield(node, "Setting permissions: #{item}") if block && ! quiet
+        yield(node, "Setting permissions: #{item}") if block && ! is_quiet
         rye.chmod(:R, "u=rwX,go=", item.to_s)
         rye.chown(:R, "root:root", item.to_s)
       end
 
-      yield(node, "Finished uploading!") if block && ! quiet
+      yield(node, "Finished uploading!") if block && ! is_quiet
 
       rye.disconnect
     end
@@ -351,13 +351,13 @@ OPTIONS:
 
       install_node(node, rye, &block)
 
-      yield(node, "Applying configuration") if block && ! quiet
+      yield(node, "Applying configuration") if block && ! is_quiet
       command = "chef-solo -j #{NODE_JSON}"
-      command << " -l debug" if verbose
+      command << " -l debug" if is_verbose
       result = rye.execute(command)
       yield(node, "Applied: #{command}\n#{result.stdout}") if block
 
-      yield(node, "Finished applying!") if block && ! quiet
+      yield(node, "Finished applying!") if block && ! is_quiet
 
       rye.disconnect
     end
@@ -410,9 +410,9 @@ OPTIONS:
             raise UnsupportedInstallationPlatform, "Can't install on node with unknown distrubtor: `#{platform[:distrubtor]}`"
           end
 
-        yield(node, "Installing ruby") if block && ! quiet
+        yield(node, "Installing ruby") if block && ! is_quiet
         output = rye.execute(command)
-        yield(node, "Installed ruby:\n#{output}") if block && ! quiet
+        yield(node, "Installed ruby:\n#{output}") if block && ! is_quiet
       end
 
       begin
@@ -428,16 +428,16 @@ OPTIONS:
             ruby setup.rb --no-format-executable &&
             rm -rf rubygems-1.3.7 rubygems-1.3.7.tgz
         HERE
-        yield(node, "Installing rubygems") if block && ! quiet
+        yield(node, "Installing rubygems") if block && ! is_quiet
         output = rye.execute(command)
-        yield(node, "Installed rubygems:\n#{output}") if block && ! quiet
+        yield(node, "Installed rubygems:\n#{output}") if block && ! is_quiet
       end
 
       # Install chef
       command = "gem install --no-rdoc --no-ri chef"
-      yield(node, "Installing chef") if block && ! quiet
+      yield(node, "Installing chef") if block && ! is_quiet
       output = rye.execute(command)
-      yield(node, "Installed chef:\n#{output}") if block && ! quiet
+      yield(node, "Installed chef:\n#{output}") if block && ! is_quiet
     end
   end
 

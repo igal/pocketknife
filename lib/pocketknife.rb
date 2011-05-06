@@ -255,78 +255,54 @@ OPTIONS:
     assert_known_nodes(nodes)
 
     # TODO either do this in memory or scope this to the PID to allow concurrency
+    solo_rb = Pathname.new("solo.rb.tmp")
+    solo_rb.open("w") {|h| h.write(SOLO_RB_CONTENT)}
+    chef_solo_apply = Pathname.new("chef-solo-apply.tmp")
+    chef_solo_apply.open("w") {|h| h.write(CHEF_SOLO_APPLY_CONTENT)}
     tarball = Pathname.new("pocketknife.tmp")
     tarball.open("w") do |handle|
-      Archive::Tar::Minitar.pack([
-        VAR_POCKETKNIFE_COOKBOOKS.basename.to_s,
-        VAR_POCKETKNIFE_SITE_COOKBOOKS.basename.to_s,
-        VAR_POCKETKNIFE_ROLES.basename.to_s],
-      handle)
+      Archive::Tar::Minitar.pack(
+        [
+          VAR_POCKETKNIFE_COOKBOOKS.basename.to_s,
+          VAR_POCKETKNIFE_SITE_COOKBOOKS.basename.to_s,
+          VAR_POCKETKNIFE_ROLES.basename.to_s,
+          solo_rb.to_s,
+          chef_solo_apply.to_s
+        ],
+        handle
+      )
     end
 
     for node in nodes
       rye = rye_for_node(node)
 
-      item = ETC_CHEF.to_s
-      begin
-        rye.test(:d, item)
-        rye.rm("-rf", item)
-      rescue Rye::Err
-        # Ignore, this means the directory doesn't exist
-      end
-      yield(node, "Creating directory: #{item}") if block && ! is_quiet
-      rye.mkdir(:p, item)
+      yield(node, "Uploading configuration") if block && ! is_quiet
 
-      item = VAR_POCKETKNIFE.to_s
-      begin
-        rye.test(:d, item)
-        rye.rm("-rf", item)
-      rescue Rye::Err
-        # Ignore, this means the directory doesn't exist
-      end
-      yield(node, "Creating directory: #{item}") if block && ! is_quiet
-      rye.mkdir(:p, item)
+      yield(node, "Removing old files") if block && ! is_quiet
+      rye.execute <<-HERE
+        umask 0377 &&
+          rm -rf "#{ETC_CHEF}" "#{VAR_POCKETKNIFE}" "#{VAR_POCKETKNIFE_CACHE}" "#{CHEF_SOLO_APPLY}" "#{CHEF_SOLO_APPLY_ALIAS}" &&
+          mkdir -p "#{ETC_CHEF}" "#{VAR_POCKETKNIFE}" "#{VAR_POCKETKNIFE_CACHE}" "#{CHEF_SOLO_APPLY.dirname}"
+      HERE
 
-      item = VAR_POCKETKNIFE_CACHE.to_s
-      yield(node, "Creating directory: #{item}") if block && ! is_quiet
-      rye.mkdir(:p, item)
-
-      yield(node, "Uploading file: #{SOLO_RB}") if block && ! is_quiet
-      rye.file_upload(StringIO.new(SOLO_RB_CONTENT), SOLO_RB.to_s)
-
-      yield(node, "Uploading file: #{NODE_JSON}") if block && ! is_quiet
+      yield(node, "Uploading new files") if block && ! is_quiet
       rye.file_upload(node_json_path_for(node).to_s, NODE_JSON.to_s)
+      rye.file_upload(tarball.to_s, VAR_POCKETKNIFE_TARBALL.to_s)
 
-      yield(node, "Uploading file: #{CHEF_SOLO_APPLY}") if block && ! is_quiet
-      rye.file_upload(StringIO.new(CHEF_SOLO_APPLY_CONTENT), CHEF_SOLO_APPLY.to_s)
-
-      yield(node, "Setting permissions: #{CHEF_SOLO_APPLY}") if block && ! is_quiet
-      rye.chmod("u=rwx,go=", CHEF_SOLO_APPLY.to_s)
-      rye.chown("root:root", CHEF_SOLO_APPLY.to_s)
-
-      begin
-        rye.test(:e, CHEF_SOLO_APPLY_ALIAS.to_s)
-        rye.rm(CHEF_SOLO_APPLY_ALIAS.to_s)
-      rescue Rye::Err
-        # Ignore, this means the file doesn't exist
-      end
-      yield(node, "Creating symlink: #{CHEF_SOLO_APPLY} -> #{CHEF_SOLO_APPLY_ALIAS}") if block && ! is_quiet
-      rye.ln(:s, CHEF_SOLO_APPLY.to_s, CHEF_SOLO_APPLY_ALIAS.to_s)
-
-      item = VAR_POCKETKNIFE_TARBALL
-      yield(node, "Uploading cookbooks and roles") if block && ! is_quiet
-      rye.file_upload(item.basename.to_s, item.to_s)
-      rye[VAR_POCKETKNIFE.to_s].tar(:xf, item.to_s)
-      tarball.unlink
-
-      [
-        VAR_POCKETKNIFE,
-        ETC_CHEF
-      ].each do |item|
-        yield(node, "Setting permissions: #{item}") if block && ! is_quiet
-        rye.chmod(:R, "u=rwX,go=", item.to_s)
-        rye.chown(:R, "root:root", item.to_s)
-      end
+      yield(node, "Installing new files") if block && ! is_quiet
+      commands = <<-HERE
+        cd "#{VAR_POCKETKNIFE_CACHE}" &&
+          tar xf "#{VAR_POCKETKNIFE_TARBALL}" &&
+          chmod -R u+rwX,go= . &&
+          chown -R root:root . &&
+          mv "#{solo_rb}" "#{SOLO_RB}" &&
+          mv "#{chef_solo_apply}" "#{CHEF_SOLO_APPLY}" &&
+          chmod u+x "#{CHEF_SOLO_APPLY}" &&
+          ln -s "#{CHEF_SOLO_APPLY.basename}" "#{CHEF_SOLO_APPLY_ALIAS}" &&
+          rm "#{VAR_POCKETKNIFE_TARBALL}" &&
+          mv * "#{VAR_POCKETKNIFE}"
+      HERE
+      puts rye.execute(commands)
 
       yield(node, "Finished uploading!") if block && ! is_quiet
 
@@ -497,7 +473,7 @@ OPTIONS:
   # @private
   VAR_POCKETKNIFE_CACHE = VAR_POCKETKNIFE + "cache"
   # @private
-  VAR_POCKETKNIFE_TARBALL = VAR_POCKETKNIFE_CACHE + "/pocketknife.tmp"
+  VAR_POCKETKNIFE_TARBALL = VAR_POCKETKNIFE_CACHE + "pocketknife.tmp"
   # @private
   VAR_POCKETKNIFE_COOKBOOKS = VAR_POCKETKNIFE + "cookbooks"
   # @private

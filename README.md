@@ -69,11 +69,10 @@ Define a new node using the `chef` JSON syntax for [runlist](http://wiki.opscode
       }
     }
 
-Optionally specify credentials for your new node using [YAML](http://www.yaml.org/start.html). You should consider [configuring ssh-agent](http://mah.everybody.org/docs/ssh) so you don't have to keep typing in your passwords. By default, `pocketknife` uses `ssh` and assumes that your node has the same hostname as the node name. However, if the node and hostname are different, you will need to configure this. For example, let's specify that node `henrietta` has a hostname of `fnp90.swa.gov.it` by creating a `auth.yml` file with this content:
+Optionally specify credentials for your new node using [YAML](http://www.yaml.org/start.html). You should consider [configuring ssh-agent](http://mah.everybody.org/docs/ssh) so you don't have to keep typing in your passwords. By default, `pocketknife` uses `ssh` and assumes that your node has the same hostname as the node name. However, if the node and hostname are different, you will need to configure this. For example, let's specify that node `henrietta` has a hostname of `fnp90.swa.gov.it` by creating a `credentials.yml` file with this content:
 
     henrietta:
         hostname: fnp90.swa.gov.it
-
 
 Finally, deploy your configuration to the remote machine and see the results. For example, lets deploy the above configuration to `henrietta`:
 

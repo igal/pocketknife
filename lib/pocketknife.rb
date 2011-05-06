@@ -11,13 +11,13 @@ require "settingslogic"
 #
 # For information on using +pocketknife+, please see the {file:README.md README.md} file.
 class Pocketknife
-  # == Auth
+  # == Credentials
   #
   # A Settingslogic class that provides authentication credentials. It looks
-  # for an <tt>auth.yml</tt> file, which can contain a list of nodes and their
+  # for an <tt>credentials.yml</tt> file, which can contain a list of nodes and their
   # credentials. If no credentials are defined, it's assumed that the
   #
-  # Example of content in <tt>auth.yml</tt>:
+  # Example of content in <tt>credentials.yml</tt>:
   #
   #   # When deploying to node 'henrietta', SSH into host 'fnp90.swa.gov.it':
   #   henrietta:
@@ -27,8 +27,8 @@ class Pocketknife
   #   triela:
   #     hostname: m1897.swa.gov.it
   #     user: bayonet
-  class Auth < Settingslogic
-    source "auth.yml"
+  class Credentials < Settingslogic
+    source "credentials.yml"
 
     # Is the Settingslogic data sane? This is used as part of a workaround for
     # a Settingslogic bug where an empty file causes it to fail with:
@@ -51,7 +51,7 @@ class Pocketknife
     #
     # @param [String] node The node name.
     # @return [String, Hash] The hostname and a hash containing <tt>:user => USER</tt> where USER is the name of the user.
-    def self.credentials_for(node)
+    def self.for_node(node)
       if _sane? && self[node]
         result = []
         result << self[node]["hostname"] || node
@@ -265,7 +265,7 @@ OPTIONS:
     end
 
     for node in nodes
-      rye = rye_for(node)
+      rye = rye_for_node(node)
 
       item = ETC_CHEF.to_s
       begin
@@ -347,7 +347,7 @@ OPTIONS:
     assert_known_nodes(nodes)
 
     for node in nodes
-      rye = rye_for(node)
+      rye = rye_for_node(node)
 
       install_node(node, rye, &block)
 
@@ -533,12 +533,12 @@ chef-solo -j #{NODE_JSON} "$@"
     end
   end
 
-  # Returns a Rye::Box connection for the given node. The credentials are looked up through Auth.
+  # Returns a Rye::Box connection for the given node. The credentials are looked up through Credentials.
   #
   # @param [String] node The node name.
   # @return [Rye::Box] A Rye::Box connection.
-  def rye_for(node)
-    credentials = Auth.credentials_for(node)
+  def rye_for_node(node)
+    credentials = Credentials.for_node(node)
     rye = Rye::Box.new(*credentials)
     rye.disable_safe_mode
     return rye

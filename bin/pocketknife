@@ -1,0 +1,15 @@
+#!/usr/bin/env ruby
+
+require 'optparse'
+require 'pathname'
+
+# Use local files if executed from a source code checkout directory, useful for development. 
+lib = Pathname.new($0).expand_path.dirname + '..' + 'lib' + 'pocketknife.rb'
+if lib.exist?
+  require 'rubygems'
+  $LOAD_PATH.unshift(lib.dirname)
+end
+
+require 'pocketknife'
+
+Pocketknife::cli(ARGV)

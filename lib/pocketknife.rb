@@ -310,7 +310,7 @@ class Pocketknife
     def install_chef
       self.say("Installing chef...")
       self.execute("gem install --no-rdoc --no-ri chef", true)
-      self.say("Installed chef")
+      self.say("Installed chef", false)
     end
 
     # Installs Rubygems on the remote node.
@@ -325,7 +325,7 @@ cd /root &&
   ruby setup.rb --no-format-executable &&
   rm -rf rubygems-1.3.7 rubygems-1.3.7.tgz
       HERE
-      self.say("Installed rubygems")
+      self.say("Installed rubygems", false)
     end
 
     # Installs Ruby on the remote node.
@@ -342,7 +342,7 @@ cd /root &&
 
       self.say("Installing ruby...")
       self.execute(command, true)
-      self.say("Installed ruby")
+      self.say("Installed ruby", false)
     end
 
     # Prepares an upload, by creating a cache of shared files used by all nodes.

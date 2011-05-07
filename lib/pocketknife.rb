@@ -124,6 +124,8 @@ class Pocketknife
     # @param [String] name A node name to find.
     # @return [Node]
     def find(name)
+      self.assert_known([name])
+
       return self.nodes[name] ||= begin
           node = Node.new(name, self.pocketknife)
         end

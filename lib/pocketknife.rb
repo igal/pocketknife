@@ -87,9 +87,10 @@ class Pocketknife
     # @return [String, Hash] The hostname and a hash containing <tt>:user => USER</tt> where USER is the name of the user.
     def self.find(node)
       if _sane? && self[node]
-        result = []
-        result << self[node]["hostname"] || node
-        result << {:user => self[node]["user"] || "root"}
+        return [
+          self[node]["hostname"] || node,
+          {:user => self[node]["user"] || "root"}
+        ]
       else
         return [node, {:user => "root"}]
       end

@@ -10,12 +10,8 @@ describe "Pocketknife" do
       @pocketknife.should be_a_kind_of(Pocketknife)
     end
 
-    it "should not be quiet" do
-      @pocketknife.is_quiet.should be_false
-    end
-
-    it "should not be verbose" do
-      @pocketknife.is_verbose.should be_false
+    it "should have normal verbosity" do
+      @pocketknife.verbosity.should be_nil
     end
 
     it "should prompt for installation if needed" do
@@ -48,7 +44,7 @@ describe "Pocketknife" do
     it "should create a project" do
       mktmpdircd do |dir|
         project = 'myproject'
-        Pocketknife.new(:quiet => true).create(project)
+        Pocketknife.new(:verbosity => false).create(project)
         Dir["#{Dir.pwd}/#{project}/*"].should_not be_empty
         Dir["#{Dir.pwd}/#{project}/credentials.yml"].should_not be_empty
         Dir["#{Dir.pwd}/#{project}/cookbooks"].should_not be_empty

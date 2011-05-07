@@ -3,7 +3,7 @@ require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
 describe "PocketKnife::Node" do
   def node_factory(name=nil, pocketknife=nil, connection=nil)
     name ||= "mynode"
-    pocketknife ||= Pocketknife.new(:quiet => true)
+    pocketknife ||= Pocketknife.new(:verbosity => false)
     node = Pocketknife::Node.new(name, pocketknife)
     node.stub(:connection => connection || true) unless connection == false
     return node
@@ -282,7 +282,7 @@ cd "/var/local/pocketknife/cache" &&
   describe "#apply" do
     it "should apply configuration" do
       node = node_factory
-      node.pocketknife.should_receive(:is_verbose).and_return(false)
+      node.pocketknife.should_receive(:verbosity).at_least(:once).and_return(false)
       node.should_receive(:install)
       node.should_receive(:execute).with("chef-solo -j /etc/chef/node.json", true)
 

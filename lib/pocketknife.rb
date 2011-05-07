@@ -210,11 +210,9 @@ class Pocketknife
     # Displays status message.
     #
     # @param [String] message The message to display.
-    # @param [Boolean] important Is the message important? If so, displays it even in quiet mode.
-    def display_status(message, important=false)
-      if important or not self.pocketknife.is_quiet
-        puts "* #{self.name}: #{message}"
-      end
+    # @param [Boolean] importance How important is this? true means important, nil means normal, false means unimportant.
+    def say(message, importance=nil)
+      self.pocketknife.say("* #{self.name}: #{message}", importance)
     end
 
     # Returns path to this node's <tt>nodes/NAME.json</tt> file, used as <tt>node.json</tt> by <tt>chef-solo</tt>.
@@ -310,14 +308,14 @@ class Pocketknife
 
     # Installs chef on the remote node.
     def install_chef
-      self.display_status("Installing chef...")
+      self.say("Installing chef...")
       self.execute("gem install --no-rdoc --no-ri chef", true)
-      self.display_status("Installed chef")
+      self.say("Installed chef")
     end
 
     # Installs Rubygems on the remote node.
     def install_rubygems
-      self.display_status("Installing rubygems...")
+      self.say("Installing rubygems...")
       self.execute(<<-HERE, true)
 cd /root &&
   rm -rf rubygems-1.3.7 rubygems-1.3.7.tgz &&
@@ -327,7 +325,7 @@ cd /root &&
   ruby setup.rb --no-format-executable &&
   rm -rf rubygems-1.3.7 rubygems-1.3.7.tgz
       HERE
-      self.display_status("Installed rubygems")
+      self.say("Installed rubygems")
     end
 
     # Installs Ruby on the remote node.
@@ -342,9 +340,9 @@ cd /root &&
           raise UnsupportedInstallationPlatform.new("Can't install on node '#{self.name}' with unknown distrubtor: `#{self.platform[:distrubtor]}`", self.name)
         end
 
-      self.display_status("Installing ruby...")
+      self.say("Installing ruby...")
       self.execute(command, true)
-      self.display_status("Installed ruby")
+      self.say("Installed ruby")
     end
 
     # Prepares an upload, by creating a cache of shared files used by all nodes.
@@ -402,20 +400,20 @@ cd /root &&
     #
     # IMPORTANT: You must first call ::prepare_upload to create the shared files that will be uploaded.
     def upload
-      self.display_status("Uploading configuration...")
+      self.say("Uploading configuration...")
 
-      self.display_status("Removing old files...")
+      self.say("Removing old files...", false)
       self.execute <<-HERE
 umask 0377 &&
   rm -rf "#{ETC_CHEF}" "#{VAR_POCKETKNIFE}" "#{VAR_POCKETKNIFE_CACHE}" "#{CHEF_SOLO_APPLY}" "#{CHEF_SOLO_APPLY_ALIAS}" &&
   mkdir -p "#{ETC_CHEF}" "#{VAR_POCKETKNIFE}" "#{VAR_POCKETKNIFE_CACHE}" "#{CHEF_SOLO_APPLY.dirname}"
       HERE
 
-      self.display_status("Uploading new files...")
+      self.say("Uploading new files...", false)
       self.connection.file_upload(self.local_node_json_pathname.to_s, NODE_JSON.to_s)
       self.connection.file_upload(TMP_TARBALL.to_s, VAR_POCKETKNIFE_TARBALL.to_s)
 
-      self.display_status("Installing new files...")
+      self.say("Installing new files...", false)
       self.execute <<-HERE, true
 cd "#{VAR_POCKETKNIFE_CACHE}" &&
   tar xf "#{VAR_POCKETKNIFE_TARBALL}" &&
@@ -429,18 +427,18 @@ cd "#{VAR_POCKETKNIFE_CACHE}" &&
   mv * "#{VAR_POCKETKNIFE}"
       HERE
 
-      self.display_status("Finished uploading!")
+      self.say("Finished uploading!", false)
     end
 
     # Applies the configuration to the node. Installs Chef, Ruby and Rubygems if needed.
     def apply
       self.install
 
-      self.display_status("Applying configuration...")
+      self.say("Applying configuration...", true)
       command = "chef-solo -j #{NODE_JSON}"
-      command << " -l debug" if self.pocketknife.is_verbose
+      command << " -l debug" if self.pocketknife.verbosity == true
       self.execute(command, true)
-      self.display_status("Finished applying!")
+      self.say("Finished applying!")
     end
 
     # Uploads and applies the configuration to the node. See #upload and #apply.
@@ -452,9 +450,10 @@ cd "#{VAR_POCKETKNIFE_CACHE}" &&
     # Executes commands on the external node.
     #
     # @param [String] commands Shell commands to execute.
-    # @param [Boolean] verbose Display execution information immediately to STDOUT, rather than returning it as an object when done.
+    # @param [Boolean] immediate Display execution information immediately to STDOUT, rather than returning it as an object when done.
     # @return [Rye::Rap] A result object describing the completed execution.
     def execute(commands, immediate=false)
+      self.say("Executing:\n#{commands}", false)
       if immediate
         self.connection.stdout_hook {|line| puts line}
       end
@@ -556,8 +555,12 @@ OPTIONS:
         return
       end
 
-      parser.on("-v", "--verbose", "Run chef in verbose mode") do |name|
-        pocketknife.is_verbose = true
+      parser.on("-v", "--verbose", "Display detailed status information") do |name|
+        pocketknife.verbosity = true
+      end
+
+      parser.on("-q", "--quiet", "Display minimal status information") do |v|
+        pocketknife.verbosity = false
       end
 
       parser.on("-u", "--upload", "Upload configuration, but don't apply it") do |v|
@@ -566,10 +569,6 @@ OPTIONS:
 
       parser.on("-a", "--apply", "Runs cheef to apply already-uploaded configuration") do |v|
         options[:apply] = true
-      end
-
-      parser.on("-q", "--quiet", "Run quietly, only display important information") do |v|
-        pocketknife.is_quiet = true
       end
 
       parser.on("-i", "--install", "Install Chef automatically") do |v|
@@ -624,11 +623,8 @@ OPTIONS:
     return "0.0.1"
   end
 
-  # Run quietly? If true, only show important output.
-  attr_accessor :is_quiet
-
-  # Run verbosely? If true, run chef with the debugging level logger.
-  attr_accessor :is_verbose
+  # Amount of detail to display? true means verbose, nil means normal, false means quiet.
+  attr_accessor :verbosity
 
   # Can chef and its dependencies be installed automatically if not found? true means perform installation without prompting, false means quit if chef isn't available, and nil means prompt the user for input.
   attr_accessor :can_install
@@ -638,15 +634,33 @@ OPTIONS:
 
   # Instantiate a new Pocketknife.
   #
-  # @option [Boolean] is_quiet Hide status information and only show important stuff?
-  # @option [Boolean] is_verbose Show debug level Chef execution output?
-  # @option [Boolean] can_install Install Chef and its dependencies if needed? true means do so automatically, false means don't, and nil means display a prompt to ask the user what to do.
+  # @option [Boolean] verbosity Amount of detail to display. true means verbose, nil means normal, false means quiet.
+  # @option [Boolean] install Install Chef and its dependencies if needed? true means do so automatically, false means don't, and nil means display a prompt to ask the user what to do.
   def initialize(opts={})
-    self.is_quiet     = opts[:quiet].nil?   ? false : opts[:quiet]
-    self.is_verbose   = opts[:verbose].nil? ? false : opts[:verbose]
-    self.can_install  = opts[:install].nil? ? nil   : opts[:install]
+    self.verbosity   = opts[:verbosity]
+    self.can_install = opts[:install]
 
     self.node_manager = NodeManager.new(self)
+  end
+
+  # Display a message, but only if it's important enough
+  #
+  # @param [String] message The message to display.
+  # @param [Boolean] importance How important is this? true means important, nil means normal, false means unimportant.
+  def say(message, importance=nil)
+    display = \
+      case self.verbosity
+      when true
+        true
+      when nil
+        importance != false
+      else
+        importance == true
+      end
+
+    if display
+      puts message
+    end
   end
 
   # Creates a new project directory.
@@ -655,7 +669,7 @@ OPTIONS:
   # @yield [path] Yields status information to the optionally supplied block.
   # @yieldparam [String] path The path of the file or directory created.
   def create(project)
-    puts "* Creating project in directory: #{project}" unless self.is_quiet
+    self.say("* Creating project in directory: #{project}")
 
     dir = Pathname.new(project)
 
@@ -668,14 +682,14 @@ OPTIONS:
       target = (dir + subdir)
       unless target.exist?
         FileUtils.mkdir_p(target)
-        puts "- #{target}/" unless self.is_quiet
+        self.say("- #{target}/")
       end
     end
 
     credentials_yml = (dir + "credentials.yml")
     unless credentials_yml.exist?
       credentials_yml.open("w") {}
-        puts "- #{credentials_yml}" unless self.is_quiet
+        self.say("- #{credentials_yml}")
     end
 
     return true

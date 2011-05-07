@@ -7,6 +7,9 @@ require "archive/tar/minitar"
 require "rye"
 require "settingslogic"
 
+# Related libraries
+require "pocketknife/version"
+
 # = Pocketknife
 #
 # For information on using +pocketknife+, please see the {file:README.md README.md} file.
@@ -545,6 +548,11 @@ OPTIONS:
 
       parser.on("-c", "--create PROJECT", "Create project") do |name|
         pocketknife.create(name)
+        return
+      end
+
+      parser.on("-V", "--version", "Display version number") do |name|
+        puts "Pocketknife #{Pocketknife::Version::STRING}"
         return
       end
 

@@ -11,12 +11,12 @@ rescue Bundler::BundlerError => e
 end
 require 'rake'
 
-load './lib/pocketknife.rb'
+load './lib/pocketknife/version.rb'
 
 require 'jeweler'
 Jeweler::Tasks.new do |gem|
   # gem is a Gem::Specification... see http://docs.rubygems.org/read/chapter/20 for more options
-  gem.version = Pocketknife.version
+  gem.version = Pocketknife::Version::STRING
   gem.name = "pocketknife"
   gem.homepage = "http://github.com/igal/pocketknife"
   gem.license = "MIT"

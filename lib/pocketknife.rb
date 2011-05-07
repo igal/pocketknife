@@ -610,10 +610,15 @@ OPTIONS:
   attr_accessor :node_manager
 
   # Instantiate a new Pocketknife.
-  def initialize
-    self.is_quiet = false
-    self.is_verbose = false
-    self.can_install = nil
+  #
+  # @option [Boolean] is_quiet Hide status information and only show important stuff?
+  # @option [Boolean] is_verbose Show debug level Chef execution output?
+  # @option [Boolean] can_install Install Chef and its dependencies if needed? true means do so automatically, false means don't, and nil means display a prompt to ask the user what to do.
+  def initialize(opts={})
+    self.is_quiet     = opts[:quiet].nil?   ? false : opts[:quiet]
+    self.is_verbose   = opts[:verbose].nil? ? false : opts[:verbose]
+    self.can_install  = opts[:install].nil? ? nil   : opts[:install]
+
     self.node_manager = NodeManager.new(self)
   end
 

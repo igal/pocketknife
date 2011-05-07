@@ -163,6 +163,9 @@ class Pocketknife
     end
   end
 
+  # == Node
+  #
+  # A node represents a remote computer. You can connect to a node, execute commands on it, install the stack, and upload and apply configurations to it.
   class Node
     # String name of the node.
     attr_accessor :name
@@ -176,6 +179,10 @@ class Pocketknife
     # Hash with information about platform, cached by #platform.
     attr_accessor :platform_cache
 
+    # Initialize a new Node.
+    #
+    # @param [String] name A node name.
+    # @param [Pocketknife] pocketknife
     def initialize(name, pocketknife)
       self.name = name
       self.pocketknife = pocketknife
@@ -192,6 +199,16 @@ class Pocketknife
           rye.disable_safe_mode
           rye
         end
+    end
+
+    # Displays status message.
+    #
+    # @param [String] message The message to display.
+    # @param [Boolean] important Is the message important? If so, displays it even in quiet mode.
+    def display_status(message, important=false)
+      if important or not self.pocketknife.is_quiet
+        puts "* #{self.name}: #{message}"
+      end
     end
 
     # Returns path to this node's <tt>nodes/NAME.json</tt> file, used as <tt>node.json</tt> by <tt>chef-solo</tt>.
@@ -312,53 +329,15 @@ class Pocketknife
       end
     end
 
-    # @private
-    ETC_CHEF = Pathname.new("/etc/chef")
-    # @private
-    SOLO_RB = ETC_CHEF + "solo.rb"
-    # @private
-    NODE_JSON = ETC_CHEF + "node.json"
-    # @private
-    VAR_POCKETKNIFE = Pathname.new("/var/local/pocketknife")
-    # @private
-    VAR_POCKETKNIFE_CACHE = VAR_POCKETKNIFE + "cache"
-    # @private
-    VAR_POCKETKNIFE_TARBALL = VAR_POCKETKNIFE_CACHE + "pocketknife.tmp"
-    # @private
-    VAR_POCKETKNIFE_COOKBOOKS = VAR_POCKETKNIFE + "cookbooks"
-    # @private
-    VAR_POCKETKNIFE_SITE_COOKBOOKS = VAR_POCKETKNIFE + "site-cookbooks"
-    # @private
-    VAR_POCKETKNIFE_ROLES = VAR_POCKETKNIFE + "roles"
-    # @private
-    SOLO_RB_CONTENT = <<-HERE
-file_cache_path "#{VAR_POCKETKNIFE_CACHE}"
-cookbook_path ["#{VAR_POCKETKNIFE_COOKBOOKS}", "#{VAR_POCKETKNIFE_SITE_COOKBOOKS}"]
-role_path "#{VAR_POCKETKNIFE_ROLES}"
-    HERE
-    # @private
-    CHEF_SOLO_APPLY = Pathname.new("/usr/local/sbin/chef-solo-apply")
-    # @private
-    CHEF_SOLO_APPLY_ALIAS = CHEF_SOLO_APPLY.dirname + "csa"
-    # @private
-    CHEF_SOLO_APPLY_CONTENT = <<-HERE
-#!/bin/sh
-chef-solo -j #{NODE_JSON} "$@"
-    HERE
-    # @private
-    TMP_SOLO_RB = Pathname.new("solo.rb.tmp")
-    # @private
-    TMP_CHEF_SOLO_APPLY = Pathname.new("chef-solo-apply.tmp")
-    # @private
-    TMP_TARBALL = Pathname.new("pocketknife.tmp")
-
-    # Prepares an upload, by creating a cache of common files used by all nodes.
+    # Prepares an upload, by creating a cache of shared files used by all nodes.
     #
     # If an optional block is supplied, calls ::cleanup_upload after it ends.
     # This is typically used like:
     #   Node.prepare_upload do
     #     mynode.upload
     #   end
+    #
+    # @yield [] Prepares the upload, executes the block, and cleans up the upload when done.
     def self.prepare_upload(&block)
       begin
         # TODO either do this in memory or scope this to the PID to allow concurrency
@@ -390,7 +369,7 @@ chef-solo -j #{NODE_JSON} "$@"
       end
     end
 
-    # Cleans up cache of common files uploaded to all nodes. This cache is created by the ::prepare_upload method.
+    # Cleans up cache of shared files uploaded to all nodes. This cache is created by the ::prepare_upload method.
     def self.cleanup_upload
       [
         TMP_TARBALL,
@@ -401,24 +380,9 @@ chef-solo -j #{NODE_JSON} "$@"
       end
     end
 
-    # Displays status message.
-    #
-    # @param [String] message The message to display.
-    # @param [Boolean] important Is the message important? If so, displays it even in quiet mode.
-    def display_status(message, important=false)
-      if important or not pocketknife.is_quiet
-        puts "* #{name}: #{message}"
-      end
-    end
-
     # Uploads configuration information to node.
-    # FIXME where to prepare tarall for a group of nodes? The Node#upload would do it each time, which is silly. But doing a Node::upload would be the same as Pocketknife::upload. Do I need extra steps? Like
-    #   Or better yet:
-    #   Node::prepare_upload do
-    #     for name in nodes
-    #       Node.find(name, pocketknife, display).upload
-    #     end
-    #   end
+    #
+    # IMPORTANT: You must first call ::prepare_upload to create the shared files that will be uploaded.
     def upload
       self.display_status("Uploading configuration...")
 
@@ -450,6 +414,7 @@ chef-solo -j #{NODE_JSON} "$@"
       self.display_status("Finished uploading!")
     end
 
+    # Applies the configuration to the node. Installs Chef, Ruby and Rubygems if needed.
     def apply
       self.install
 
@@ -460,19 +425,81 @@ chef-solo -j #{NODE_JSON} "$@"
       self.display_status("Finished applying!")
     end
 
+    # Uploads and applies the configuration to the node. See #upload and #apply.
     def upload_and_apply
       self.upload
       self.apply
     end
 
-    def execute(commands, verbose=false)
-      if verbose
+    # Executes commands on the external node.
+    #
+    # @param [String] commands Shell commands to execute.
+    # @param [Boolean] verbose Display execution information immediately to STDOUT, rather than returning it as an object when done.
+    # @return [Rye::Rap] A result object describing the completed execution.
+    def execute(commands, immediate=false)
+      if immediate
         self.connection.stdout_hook {|line| puts line}
       end
-      return self.connection.execute(commands)
+      return self.connection.execute("(#{commands}) 2>&1")
     ensure
       self.connection.stdout_hook = nil
     end
+
+    # Remote path to chef's settings
+    # @private
+    ETC_CHEF = Pathname.new("/etc/chef")
+    # Remote path to solo.rb
+    # @private
+    SOLO_RB = ETC_CHEF + "solo.rb"
+    # Remote path to node.json
+    # @private
+    NODE_JSON = ETC_CHEF + "node.json"
+    # Remote path to pocketknife's deployed configuration
+    # @private
+    VAR_POCKETKNIFE = Pathname.new("/var/local/pocketknife")
+    # Remote path to pocketknife's cache
+    # @private
+    VAR_POCKETKNIFE_CACHE = VAR_POCKETKNIFE + "cache"
+    # Remote path to temporary tarball containing uploaded files.
+    # @private
+    VAR_POCKETKNIFE_TARBALL = VAR_POCKETKNIFE_CACHE + "pocketknife.tmp"
+    # Remote path to pocketknife's cookbooks
+    # @private
+    VAR_POCKETKNIFE_COOKBOOKS = VAR_POCKETKNIFE + "cookbooks"
+    # Remote path to pocketknife's site-cookbooks
+    # @private
+    VAR_POCKETKNIFE_SITE_COOKBOOKS = VAR_POCKETKNIFE + "site-cookbooks"
+    # Remote path to pocketknife's roles
+    # @private
+    VAR_POCKETKNIFE_ROLES = VAR_POCKETKNIFE + "roles"
+    # Content of the solo.rb file
+    # @private
+    SOLO_RB_CONTENT = <<-HERE
+file_cache_path "#{VAR_POCKETKNIFE_CACHE}"
+cookbook_path ["#{VAR_POCKETKNIFE_COOKBOOKS}", "#{VAR_POCKETKNIFE_SITE_COOKBOOKS}"]
+role_path "#{VAR_POCKETKNIFE_ROLES}"
+    HERE
+    # Remote path to chef-solo-apply
+    # @private
+    CHEF_SOLO_APPLY = Pathname.new("/usr/local/sbin/chef-solo-apply")
+    # Remote path to csa
+    # @private
+    CHEF_SOLO_APPLY_ALIAS = CHEF_SOLO_APPLY.dirname + "csa"
+    # Content of the chef-solo-apply file
+    # @private
+    CHEF_SOLO_APPLY_CONTENT = <<-HERE
+#!/bin/sh
+chef-solo -j #{NODE_JSON} "$@"
+    HERE
+    # Local path to solo.rb that will be included in the tarball
+    # @private
+    TMP_SOLO_RB = Pathname.new("solo.rb.tmp")
+    # Local path to chef-solo-apply.rb that will be included in the tarball
+    # @private
+    TMP_CHEF_SOLO_APPLY = Pathname.new("chef-solo-apply.tmp")
+    # Local path to the tarball to upload to the remote node containing shared files
+    # @private
+    TMP_TARBALL = Pathname.new("pocketknife.tmp")
   end
 
   # Runs the interpreter using arguments provided by the command-line.

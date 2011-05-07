@@ -531,7 +531,7 @@ OPTIONS:
 
       options = {}
 
-      parser.on("-c", "--create [PROJECT]", "Create project") do |name|
+      parser.on("-c", "--create PROJECT", "Create project") do |name|
         pocketknife.create(name)
         return
       end

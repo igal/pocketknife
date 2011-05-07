@@ -294,42 +294,54 @@ class Pocketknife
         end
 
         unless self.has_executable?("ruby")
-          # Install ruby
-          command = \
-            case self.platform[:distributor].downcase
-            when /ubuntu/, /debian/, /gnu\/linux/
-              "DEBIAN_FRONTEND=noninteractive apt-get --yes install ruby ruby-dev libopenssl-ruby irb build-essential wget ssl-cert"
-            when /centos/, /red hat/, /scientific linux/
-              "yum -y install ruby ruby-shadow gcc gcc-c++ ruby-devel wget"
-            else
-              raise UnsupportedInstallationPlatform.new("Can't install on node '#{self.name}' with unknown distrubtor: `#{self.platform[:distrubtor]}`", self.name)
-            end
-
-          self.display_status("Installing ruby...")
-          self.execute(command, true)
-          self.display_status("Installed ruby")
+          self.install_ruby
         end
 
         unless self.has_executable?("gem")
-          # Install gem
-          self.display_status("Installing rubygems...")
-          self.execute(<<-HERE, true)
-            cd /root &&
-              rm -rf rubygems-1.3.7 rubygems-1.3.7.tgz &&
-              wget http://production.cf.rubygems.org/rubygems/rubygems-1.3.7.tgz &&
-              tar zxf rubygems-1.3.7.tgz &&
-              cd rubygems-1.3.7 &&
-              ruby setup.rb --no-format-executable &&
-              rm -rf rubygems-1.3.7 rubygems-1.3.7.tgz
-          HERE
-          self.display_status("Installed rubygems")
+          self.install_rubygems
         end
 
-        # Install chef
-        self.display_status("Installing chef...")
-        self.execute("gem install --no-rdoc --no-ri chef", true)
-        self.display_status("Installed chef")
+        self.install_chef
       end
+    end
+
+    # Installs chef on the remote node.
+    def install_chef
+      self.display_status("Installing chef...")
+      self.execute("gem install --no-rdoc --no-ri chef", true)
+      self.display_status("Installed chef")
+    end
+
+    # Installs Rubygems on the remote node.
+    def install_rubygems
+      self.display_status("Installing rubygems...")
+      self.execute(<<-HERE, true)
+        cd /root &&
+          rm -rf rubygems-1.3.7 rubygems-1.3.7.tgz &&
+          wget http://production.cf.rubygems.org/rubygems/rubygems-1.3.7.tgz &&
+          tar zxf rubygems-1.3.7.tgz &&
+          cd rubygems-1.3.7 &&
+          ruby setup.rb --no-format-executable &&
+          rm -rf rubygems-1.3.7 rubygems-1.3.7.tgz
+      HERE
+      self.display_status("Installed rubygems")
+    end
+
+    # Installs Ruby on the remote node.
+    def install_ruby
+      command = \
+        case self.platform[:distributor].downcase
+        when /ubuntu/, /debian/, /gnu\/linux/
+          "DEBIAN_FRONTEND=noninteractive apt-get --yes install ruby ruby-dev libopenssl-ruby irb build-essential wget ssl-cert"
+        when /centos/, /red hat/, /scientific linux/
+          "yum -y install ruby ruby-shadow gcc gcc-c++ ruby-devel wget"
+        else
+          raise UnsupportedInstallationPlatform.new("Can't install on node '#{self.name}' with unknown distrubtor: `#{self.platform[:distrubtor]}`", self.name)
+        end
+
+      self.display_status("Installing ruby...")
+      self.execute(command, true)
+      self.display_status("Installed ruby")
     end
 
     # Prepares an upload, by creating a cache of shared files used by all nodes.

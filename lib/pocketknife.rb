@@ -319,13 +319,13 @@ class Pocketknife
     def install_rubygems
       self.display_status("Installing rubygems...")
       self.execute(<<-HERE, true)
-        cd /root &&
-          rm -rf rubygems-1.3.7 rubygems-1.3.7.tgz &&
-          wget http://production.cf.rubygems.org/rubygems/rubygems-1.3.7.tgz &&
-          tar zxf rubygems-1.3.7.tgz &&
-          cd rubygems-1.3.7 &&
-          ruby setup.rb --no-format-executable &&
-          rm -rf rubygems-1.3.7 rubygems-1.3.7.tgz
+cd /root &&
+  rm -rf rubygems-1.3.7 rubygems-1.3.7.tgz &&
+  wget http://production.cf.rubygems.org/rubygems/rubygems-1.3.7.tgz &&
+  tar zxf rubygems-1.3.7.tgz &&
+  cd rubygems-1.3.7 &&
+  ruby setup.rb --no-format-executable &&
+  rm -rf rubygems-1.3.7 rubygems-1.3.7.tgz
       HERE
       self.display_status("Installed rubygems")
     end
@@ -406,9 +406,9 @@ class Pocketknife
 
       self.display_status("Removing old files...")
       self.execute <<-HERE
-        umask 0377 &&
-          rm -rf "#{ETC_CHEF}" "#{VAR_POCKETKNIFE}" "#{VAR_POCKETKNIFE_CACHE}" "#{CHEF_SOLO_APPLY}" "#{CHEF_SOLO_APPLY_ALIAS}" &&
-          mkdir -p "#{ETC_CHEF}" "#{VAR_POCKETKNIFE}" "#{VAR_POCKETKNIFE_CACHE}" "#{CHEF_SOLO_APPLY.dirname}"
+umask 0377 &&
+  rm -rf "#{ETC_CHEF}" "#{VAR_POCKETKNIFE}" "#{VAR_POCKETKNIFE_CACHE}" "#{CHEF_SOLO_APPLY}" "#{CHEF_SOLO_APPLY_ALIAS}" &&
+  mkdir -p "#{ETC_CHEF}" "#{VAR_POCKETKNIFE}" "#{VAR_POCKETKNIFE_CACHE}" "#{CHEF_SOLO_APPLY.dirname}"
       HERE
 
       self.display_status("Uploading new files...")
@@ -417,16 +417,16 @@ class Pocketknife
 
       self.display_status("Installing new files...")
       self.execute <<-HERE, true
-        cd "#{VAR_POCKETKNIFE_CACHE}" &&
-          tar xf "#{VAR_POCKETKNIFE_TARBALL}" &&
-          chmod -R u+rwX,go= . &&
-          chown -R root:root . &&
-          mv "#{TMP_SOLO_RB}" "#{SOLO_RB}" &&
-          mv "#{TMP_CHEF_SOLO_APPLY}" "#{CHEF_SOLO_APPLY}" &&
-          chmod u+x "#{CHEF_SOLO_APPLY}" &&
-          ln -s "#{CHEF_SOLO_APPLY.basename}" "#{CHEF_SOLO_APPLY_ALIAS}" &&
-          rm "#{VAR_POCKETKNIFE_TARBALL}" &&
-          mv * "#{VAR_POCKETKNIFE}"
+cd "#{VAR_POCKETKNIFE_CACHE}" &&
+  tar xf "#{VAR_POCKETKNIFE_TARBALL}" &&
+  chmod -R u+rwX,go= . &&
+  chown -R root:root . &&
+  mv "#{TMP_SOLO_RB}" "#{SOLO_RB}" &&
+  mv "#{TMP_CHEF_SOLO_APPLY}" "#{CHEF_SOLO_APPLY}" &&
+  chmod u+x "#{CHEF_SOLO_APPLY}" &&
+  ln -s "#{CHEF_SOLO_APPLY.basename}" "#{CHEF_SOLO_APPLY_ALIAS}" &&
+  rm "#{VAR_POCKETKNIFE_TARBALL}" &&
+  mv * "#{VAR_POCKETKNIFE}"
       HERE
 
       self.display_status("Finished uploading!")

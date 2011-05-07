@@ -160,13 +160,13 @@ describe "PocketKnife::Node" do
     it "should install rubygems" do
       node = node_factory
       node.should_receive(:execute).with(<<-HERE, true)
-        cd /root &&
-          rm -rf rubygems-1.3.7 rubygems-1.3.7.tgz &&
-          wget http://production.cf.rubygems.org/rubygems/rubygems-1.3.7.tgz &&
-          tar zxf rubygems-1.3.7.tgz &&
-          cd rubygems-1.3.7 &&
-          ruby setup.rb --no-format-executable &&
-          rm -rf rubygems-1.3.7 rubygems-1.3.7.tgz
+cd /root &&
+  rm -rf rubygems-1.3.7 rubygems-1.3.7.tgz &&
+  wget http://production.cf.rubygems.org/rubygems/rubygems-1.3.7.tgz &&
+  tar zxf rubygems-1.3.7.tgz &&
+  cd rubygems-1.3.7 &&
+  ruby setup.rb --no-format-executable &&
+  rm -rf rubygems-1.3.7 rubygems-1.3.7.tgz
       HERE
 
       node.install_rubygems
@@ -252,9 +252,9 @@ describe "PocketKnife::Node" do
         local_node_json.open("w") { |h| h.write("{}") }
 
         node.should_receive(:execute).with(<<-HERE)
-        umask 0377 &&
-          rm -rf "/etc/chef" "/var/local/pocketknife" "/var/local/pocketknife/cache" "/usr/local/sbin/chef-solo-apply" "/usr/local/sbin/csa" &&
-          mkdir -p "/etc/chef" "/var/local/pocketknife" "/var/local/pocketknife/cache" "/usr/local/sbin"
+umask 0377 &&
+  rm -rf "/etc/chef" "/var/local/pocketknife" "/var/local/pocketknife/cache" "/usr/local/sbin/chef-solo-apply" "/usr/local/sbin/csa" &&
+  mkdir -p "/etc/chef" "/var/local/pocketknife" "/var/local/pocketknife/cache" "/usr/local/sbin"
         HERE
 
         node.connection.should_receive(:file_upload).with(local_node_json.to_s, "/etc/chef/node.json")
@@ -262,16 +262,16 @@ describe "PocketKnife::Node" do
         node.connection.should_receive(:file_upload).with(Pocketknife::Node::TMP_TARBALL.to_s, "/var/local/pocketknife/cache/pocketknife.tmp")
 
         node.should_receive(:execute).with(<<-HERE, true)
-        cd "/var/local/pocketknife/cache" &&
-          tar xf "/var/local/pocketknife/cache/pocketknife.tmp" &&
-          chmod -R u+rwX,go= . &&
-          chown -R root:root . &&
-          mv "solo.rb.tmp" "/etc/chef/solo.rb" &&
-          mv "chef-solo-apply.tmp" "/usr/local/sbin/chef-solo-apply" &&
-          chmod u+x "/usr/local/sbin/chef-solo-apply" &&
-          ln -s "chef-solo-apply" "/usr/local/sbin/csa" &&
-          rm "/var/local/pocketknife/cache/pocketknife.tmp" &&
-          mv * "/var/local/pocketknife"
+cd "/var/local/pocketknife/cache" &&
+  tar xf "/var/local/pocketknife/cache/pocketknife.tmp" &&
+  chmod -R u+rwX,go= . &&
+  chown -R root:root . &&
+  mv "solo.rb.tmp" "/etc/chef/solo.rb" &&
+  mv "chef-solo-apply.tmp" "/usr/local/sbin/chef-solo-apply" &&
+  chmod u+x "/usr/local/sbin/chef-solo-apply" &&
+  ln -s "chef-solo-apply" "/usr/local/sbin/csa" &&
+  rm "/var/local/pocketknife/cache/pocketknife.tmp" &&
+  mv * "/var/local/pocketknife"
         HERE
 
         node.upload

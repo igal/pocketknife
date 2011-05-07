@@ -18,14 +18,15 @@ def mktmpdircd(&block)
 end
 
 def mkproject(&block)
+  create = lambda { Pocketknife.new(:verbosity => false).create('.') }
   if block
     mktmpdircd do |dir|
-      Pocketknife.new(:quiet => true).create('.')
+      create.call
       yield(dir)
     end
   else
     dir = mktmpdircd
-    Pocketknife.new(:quiet => true).create('.')
+    create.call
     return dir
   end
 end

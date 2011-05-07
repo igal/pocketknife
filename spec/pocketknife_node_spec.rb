@@ -285,6 +285,7 @@ cd "/var/local/pocketknife/cache" &&
       node.pocketknife.should_receive(:verbosity).at_least(:once).and_return(false)
       node.should_receive(:install)
       node.should_receive(:execute).with("chef-solo -j /etc/chef/node.json", true)
+      node.stub(:say)
 
       node.apply
     end

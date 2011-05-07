@@ -11,6 +11,41 @@ require "settingslogic"
 #
 # For information on using +pocketknife+, please see the {file:README.md README.md} file.
 class Pocketknife
+  # == NodeError
+  #
+  # An error with a node. This is usually subclassed by a more specific error.
+  class NodeError < StandardError
+    # The name of the node.
+    attr_accessor :node
+
+    # Instantiate a new exception.
+    #
+    # @param [String] message The message to display.
+    # @param [String] node The name of the unknown node.
+    def initialize(message, node)
+      self.node = node
+      super(message)
+    end
+  end
+
+  # == NoSuchNode
+  #
+  # Exception raised when asked to perform an operation on an unknown node.
+  class NoSuchNode < NodeError
+  end
+
+  # == UnsupportedInstallationPlatform
+  #
+  # Exception raised when asked to install Chef on an unsupported platform.
+  class UnsupportedInstallationPlatform < NodeError
+  end
+
+  # == NotInstalling
+  #
+  # Exception raised when Chef is not available, but user asked not to install it.
+  class NotInstalling < NodeError
+  end
+
   # == Credentials
   #
   # A Settingslogic class that provides authentication credentials. It looks
@@ -44,14 +79,13 @@ class Pocketknife
       end
     end
 
-    # Returns credentials for the node.
+    # Returns credentials for a node.
     #
-    # Defaults to having the hostname be the same as the node name, and +root+
-    # as the user.
+    # Defaults to hostname being the same as the node name, and user being +root+.
     #
     # @param [String] node The node name.
     # @return [String, Hash] The hostname and a hash containing <tt>:user => USER</tt> where USER is the name of the user.
-    def self.for_node(node)
+    def self.find(node)
       if _sane? && self[node]
         result = []
         result << self[node]["hostname"] || node
@@ -62,33 +96,383 @@ class Pocketknife
     end
   end
 
-  # == NoSuchNode
+  # == NodeManager
   #
-  # Exception raised when asked to perform an operation on an unknown node.
-  class NoSuchNode < StandardError
-    # The name of the node.
-    attr_accessor :node
+  # The NodeManager manages Node instances for a Pocketknife.
+  class NodeManager
+    # Instance of a Pocketknife.
+    attr_accessor :pocketknife
 
-    # Instantiate a new exception.
+    # Hash of Node instances by their name.
+    attr_accessor :nodes
+
+    # Array of known nodes, used as cache by #known_nodes. Nil when empty.
+    attr_accessor :known_nodes_cache
+
+    # Instantiate a new NodeManager.
     #
-    # @param [String] message The message to display.
-    # @param [String] node The name of the unknown node.
-    def initialize(message, node)
-      self.node = node
-      super(message)
+    # @param [Pocketknife] pocketknife
+    def initialize(pocketknife)
+      self.pocketknife = pocketknife
+      self.nodes = {}
+      self.known_nodes_cache = nil
+    end
+
+    # Return a Node instance. Use cached value if available.
+    #
+    # @param [String] name A node name to find.
+    # @return [Node]
+    def find(name)
+      return self.nodes[name] ||= begin
+          node = Node.new(name, self.pocketknife)
+        end
+    end
+
+    # Asserts that the specified nodes are known to Pocketknife.
+    #
+    # @param [Array<String>] nodes A list of node names.
+    # @raise [NoSuchNode] Raised if there's an unknown node.
+    def assert_known(names)
+      unknown = names - self.known_nodes
+
+      unless unknown.empty?
+        raise NoSuchNode.new("No configuration found for node: #{unknown.first}" , unknown.first)
+      end
+    end
+
+    # Returns the known node names for this project.
+    #
+    # Caches results to #known_nodes_cache
+    #
+    # @return [Array<String>] The node names.
+    # @raise [Errno::ENOENT] Raised if can't find the 'nodes' directory.
+    def known_nodes
+      return(self.known_nodes_cache ||= begin
+          dir = Pathname.new("nodes")
+          json_extension = /\.json$/
+          if dir.directory?
+            dir.entries.select do |path|
+              path.to_s =~ json_extension
+            end.map do |path|
+              path.to_s.sub(json_extension, "")
+            end
+          else
+            raise Errno::ENOENT, "Can't find 'nodes' directory."
+          end
+        end)
     end
   end
 
-  # == UnsupportedInstallationPlatform
-  #
-  # Exception raised when asked to install Chef on an unsupported platform.
-  class UnsupportedInstallationPlatform < StandardError
-  end
+  class Node
+    # String name of the node.
+    attr_accessor :name
 
-  # == NotInstalling
-  #
-  # Exception raised when Chef is not available, but user asked not to install it.
-  class NotInstalling < StandardError
+    # Instance of a Pocketknife.
+    attr_accessor :pocketknife
+
+    # Instance of Rye::Box connection, cached by #connection.
+    attr_accessor :connection_cache
+
+    # Hash with information about platform, cached by #platform.
+    attr_accessor :platform_cache
+
+    def initialize(name, pocketknife)
+      self.name = name
+      self.pocketknife = pocketknife
+      self.connection_cache = nil
+    end
+
+    # Returns a Rye::Box connection.
+    #
+    # Caches result to #connection_cache
+    def connection
+      return self.connection_cache ||= begin
+          credentials = Credentials.find(self.name)
+          rye = Rye::Box.new(*credentials)
+          rye.disable_safe_mode
+          rye
+        end
+    end
+
+    # Returns path to this node's <tt>nodes/NAME.json</tt> file, used as <tt>node.json</tt> by <tt>chef-solo</tt>.
+    #
+    # @return [Pathname]
+    def local_node_json_pathname
+      return Pathname.new("nodes") + "#{self.name}.json"
+    end
+
+    # Does this node have the given executable?
+    #
+    # @param [String] executable A name of an executable, e.g. <tt>chef-solo</tt>.
+    # @return [Boolean] Has executable?
+    def has_executable?(executable)
+      begin
+        self.connection.execute(%{which "#{executable}" && test -x `which "#{executable}"`})
+        return true
+      rescue Rye::Err
+        return false
+      end
+    end
+
+    # Returns information describing the node.
+    #
+    # The information is formatted similar to this:
+    #   {
+    #     :distributor=>"Ubuntu", # String with distributor name
+    #     :codename=>"maverick", # String with release codename
+    #     :release=>"10.10", # String with release number
+    #     :version=>10.1 # Float with release number
+    #   }
+    #
+    # @return [Hash<String, Object] Return a hash describing the node, see above.
+    # @raise [UnsupportedInstallationPlatform] Raised if there's no installation information for this platform.
+    def platform
+      return self.platform_cache ||= begin
+        lsb_release = "/etc/lsb-release"
+        begin
+          output = self.connection.cat(lsb_release).to_s
+          result = {}
+          result[:distributor] = output[/DISTRIB_ID\s*=\s*(.+?)$/, 1]
+          result[:release] = output[/DISTRIB_RELEASE\s*=\s*(.+?)$/, 1]
+          result[:codename] = output[/DISTRIB_CODENAME\s*=\s*(.+?)$/, 1]
+          result[:version] = result[:release].to_f
+
+          if result[:distributor] && result[:release] && result[:codename] && result[:version]
+            return result
+          else
+            raise UnsupportedInstallationPlatform.new("Can't install on node '#{self.name}' with invalid '#{lsb_release}' file", self.name)
+          end
+        rescue Rye::Err
+          raise UnsupportedInstallationPlatform.new("Can't install on node '#{self.name}' without '#{lsb_release}'", self.name)
+        end
+      end
+    end
+
+    # Installs Chef and its dependencies on a node if needed.
+    #
+    # @raise [NotInstalling] Raised if Chef isn't installed, but user didn't allow installation.
+    # @raise [UnsupportedInstallationPlatform] Raised if there's no installation information for this platform.
+    def install
+      unless self.has_executable?("chef-solo")
+        case self.pocketknife.can_install
+        when nil
+          # Prompt for installation
+          print "? #{node}: Chef not found. Install it and its dependencies? (Y/n) "
+          STDOUT.flush
+          answer = STDIN.gets.chomp
+          case answer
+          when /^y/i, ''
+            # Continue with install
+          else
+            raise NotInstalling.new("Chef isn't installed on node '#{self.name}', but user doesn't want to install it.", self.name)
+          end
+        when true
+          # User wanted us to install
+        else
+          # Don't install
+          raise NotInstalling.new("Chef isn't installed on node '#{self.name}', but user doesn't want to install it.", self.name)
+        end
+
+        unless self.has_executable?("ruby")
+          # Install ruby
+          command = \
+            case self.platform[:distributor].downcase
+            when /ubuntu/, /debian/, /gnu\/linux/
+              "DEBIAN_FRONTEND=noninteractive apt-get --yes install ruby ruby-dev libopenssl-ruby irb build-essential wget ssl-cert"
+            when /centos/, /red hat/, /scientific linux/
+              "yum -y install ruby ruby-shadow gcc gcc-c++ ruby-devel wget"
+            else
+              raise UnsupportedInstallationPlatform.new("Can't install on node '#{self.name}' with unknown distrubtor: `#{self.platform[:distrubtor]}`", self.name)
+            end
+
+          self.display_status("Installing ruby...")
+          self.execute(command, true)
+          self.display_status("Installed ruby")
+        end
+
+        unless self.has_executable?("gem")
+          # Install gem
+          self.display_status("Installing rubygems...")
+          self.execute(<<-HERE, true)
+            cd /root &&
+              rm -rf rubygems-1.3.7 rubygems-1.3.7.tgz &&
+              wget http://production.cf.rubygems.org/rubygems/rubygems-1.3.7.tgz &&
+              tar zxf rubygems-1.3.7.tgz &&
+              cd rubygems-1.3.7 &&
+              ruby setup.rb --no-format-executable &&
+              rm -rf rubygems-1.3.7 rubygems-1.3.7.tgz
+          HERE
+          self.display_status("Installed rubygems")
+        end
+
+        # Install chef
+        self.display_status("Installing chef...")
+        self.execute("gem install --no-rdoc --no-ri chef", true)
+        self.display_status("Installed chef")
+      end
+    end
+
+    # @private
+    ETC_CHEF = Pathname.new("/etc/chef")
+    # @private
+    SOLO_RB = ETC_CHEF + "solo.rb"
+    # @private
+    NODE_JSON = ETC_CHEF + "node.json"
+    # @private
+    VAR_POCKETKNIFE = Pathname.new("/var/local/pocketknife")
+    # @private
+    VAR_POCKETKNIFE_CACHE = VAR_POCKETKNIFE + "cache"
+    # @private
+    VAR_POCKETKNIFE_TARBALL = VAR_POCKETKNIFE_CACHE + "pocketknife.tmp"
+    # @private
+    VAR_POCKETKNIFE_COOKBOOKS = VAR_POCKETKNIFE + "cookbooks"
+    # @private
+    VAR_POCKETKNIFE_SITE_COOKBOOKS = VAR_POCKETKNIFE + "site-cookbooks"
+    # @private
+    VAR_POCKETKNIFE_ROLES = VAR_POCKETKNIFE + "roles"
+    # @private
+    SOLO_RB_CONTENT = <<-HERE
+file_cache_path "#{VAR_POCKETKNIFE_CACHE}"
+cookbook_path ["#{VAR_POCKETKNIFE_COOKBOOKS}", "#{VAR_POCKETKNIFE_SITE_COOKBOOKS}"]
+role_path "#{VAR_POCKETKNIFE_ROLES}"
+    HERE
+    # @private
+    CHEF_SOLO_APPLY = Pathname.new("/usr/local/sbin/chef-solo-apply")
+    # @private
+    CHEF_SOLO_APPLY_ALIAS = CHEF_SOLO_APPLY.dirname + "csa"
+    # @private
+    CHEF_SOLO_APPLY_CONTENT = <<-HERE
+#!/bin/sh
+chef-solo -j #{NODE_JSON} "$@"
+    HERE
+    # @private
+    TMP_SOLO_RB = Pathname.new("solo.rb.tmp")
+    # @private
+    TMP_CHEF_SOLO_APPLY = Pathname.new("chef-solo-apply.tmp")
+    # @private
+    TMP_TARBALL = Pathname.new("pocketknife.tmp")
+
+    # Prepares an upload, by creating a cache of common files used by all nodes.
+    #
+    # If an optional block is supplied, calls ::cleanup_upload after it ends.
+    # This is typically used like:
+    #   Node.prepare_upload do
+    #     mynode.upload
+    #   end
+    def self.prepare_upload(&block)
+      begin
+        # TODO either do this in memory or scope this to the PID to allow concurrency
+        TMP_SOLO_RB.open("w") {|h| h.write(SOLO_RB_CONTENT)}
+        TMP_CHEF_SOLO_APPLY.open("w") {|h| h.write(CHEF_SOLO_APPLY_CONTENT)}
+        TMP_TARBALL.open("w") do |handle|
+          Archive::Tar::Minitar.pack(
+            [
+              VAR_POCKETKNIFE_COOKBOOKS.basename.to_s,
+              VAR_POCKETKNIFE_SITE_COOKBOOKS.basename.to_s,
+              VAR_POCKETKNIFE_ROLES.basename.to_s,
+              TMP_SOLO_RB.to_s,
+              TMP_CHEF_SOLO_APPLY.to_s
+            ],
+            handle
+          )
+        end
+      rescue Exception => e
+        cleanup_upload
+        raise e
+      end
+
+      if block
+        begin
+          yield(self)
+        ensure
+          cleanup_upload
+        end
+      end
+    end
+
+    # Cleans up cache of common files uploaded to all nodes. This cache is created by the ::prepare_upload method.
+    def self.cleanup_upload
+      [
+        TMP_TARBALL,
+        TMP_SOLO_RB,
+        TMP_CHEF_SOLO_APPLY
+      ].each do |path|
+        path.unlink if path.exist?
+      end
+    end
+
+    # Displays status message.
+    #
+    # @param [String] message The message to display.
+    # @param [Boolean] important Is the message important? If so, displays it even in quiet mode.
+    def display_status(message, important=false)
+      if important or not pocketknife.is_quiet
+        puts "* #{name}: #{message}"
+      end
+    end
+
+    # Uploads configuration information to node.
+    # FIXME where to prepare tarall for a group of nodes? The Node#upload would do it each time, which is silly. But doing a Node::upload would be the same as Pocketknife::upload. Do I need extra steps? Like
+    #   Or better yet:
+    #   Node::prepare_upload do
+    #     for name in nodes
+    #       Node.find(name, pocketknife, display).upload
+    #     end
+    #   end
+    def upload
+      self.display_status("Uploading configuration...")
+
+      self.display_status("Removing old files...")
+      self.execute <<-HERE
+        umask 0377 &&
+          rm -rf "#{ETC_CHEF}" "#{VAR_POCKETKNIFE}" "#{VAR_POCKETKNIFE_CACHE}" "#{CHEF_SOLO_APPLY}" "#{CHEF_SOLO_APPLY_ALIAS}" &&
+          mkdir -p "#{ETC_CHEF}" "#{VAR_POCKETKNIFE}" "#{VAR_POCKETKNIFE_CACHE}" "#{CHEF_SOLO_APPLY.dirname}"
+      HERE
+
+      self.display_status("Uploading new files...")
+      self.connection.file_upload(self.local_node_json_pathname.to_s, NODE_JSON.to_s)
+      self.connection.file_upload(TMP_TARBALL.to_s, VAR_POCKETKNIFE_TARBALL.to_s)
+
+      self.display_status("Installing new files...")
+      self.execute <<-HERE, true
+        cd "#{VAR_POCKETKNIFE_CACHE}" &&
+          tar xf "#{VAR_POCKETKNIFE_TARBALL}" &&
+          chmod -R u+rwX,go= . &&
+          chown -R root:root . &&
+          mv "#{TMP_SOLO_RB}" "#{SOLO_RB}" &&
+          mv "#{TMP_CHEF_SOLO_APPLY}" "#{CHEF_SOLO_APPLY}" &&
+          chmod u+x "#{CHEF_SOLO_APPLY}" &&
+          ln -s "#{CHEF_SOLO_APPLY.basename}" "#{CHEF_SOLO_APPLY_ALIAS}" &&
+          rm "#{VAR_POCKETKNIFE_TARBALL}" &&
+          mv * "#{VAR_POCKETKNIFE}"
+      HERE
+
+      self.display_status("Finished uploading!")
+    end
+
+    def apply
+      self.install
+
+      self.display_status("Applying configuration...")
+      command = "chef-solo -j #{NODE_JSON}"
+      command << " -l debug" if self.pocketknife.is_verbose
+      self.execute(command, true)
+      self.display_status("Finished applying!")
+    end
+
+    def upload_and_apply
+      self.upload
+      self.apply
+    end
+
+    def execute(commands, verbose=false)
+      if verbose
+        self.connection.stdout_hook {|line| puts line}
+      end
+      return self.connection.execute(commands)
+    ensure
+      self.connection.stdout_hook = nil
+    end
   end
 
   # Runs the interpreter using arguments provided by the command-line.
@@ -118,10 +502,7 @@ OPTIONS:
       options = {}
 
       parser.on("-c", "--create [PROJECT]", "Create project") do |name|
-        puts "* Creating project in directory: #{name}"
-        pocketknife.create(name) do |created|
-          puts "- #{created}"
-        end
+        pocketknife.create(name)
         return
       end
 
@@ -158,27 +539,19 @@ OPTIONS:
         exit -1
       end
 
-      display = lambda do |node, success, error|
-        if success
-          puts "* #{node}: #{success}"
-        elsif error
-          puts "! #{node}: #{error}"
-        else
-          # Ignore
-        end
-      end
+      nodes = arguments
 
       begin
         if options[:upload]
-          pocketknife.upload(arguments, &display)
+          pocketknife.upload(nodes)
         end
 
         if options[:apply]
-          pocketknife.apply(arguments, &display)
+          pocketknife.apply(nodes)
         end
 
         if not options[:upload] and not options[:apply]
-          pocketknife.upload_and_apply(arguments, &display)
+          pocketknife.upload_and_apply(nodes)
         end
       rescue NoSuchNode, NotInstalling, UnsupportedInstallationPlatform => e
         puts "! #{e}"
@@ -203,8 +576,15 @@ OPTIONS:
   # Can chef and its dependencies be installed automatically if not found? true means perform installation without prompting, false means quit if chef isn't available, and nil means prompt the user for input.
   attr_accessor :can_install
 
+  # NodeManager instance.
+  attr_accessor :node_manager
+
   # Instantiate a new Pocketknife.
   def initialize
+    self.is_quiet = false
+    self.is_verbose = false
+    self.can_install = nil
+    self.node_manager = NodeManager.new(self)
   end
 
   # Creates a new project directory.
@@ -212,7 +592,9 @@ OPTIONS:
   # @param [String] project The name of the project directory to create.
   # @yield [path] Yields status information to the optionally supplied block.
   # @yieldparam [String] path The path of the file or directory created.
-  def create(project, &block)
+  def create(project)
+    puts "* Creating project in directory: #{project}" unless self.is_quiet
+
     dir = Pathname.new(project)
 
     %w[
@@ -224,323 +606,60 @@ OPTIONS:
       target = (dir + subdir)
       unless target.exist?
         FileUtils.mkdir_p(target)
-        yield(target.to_s) if block
+        puts "- #{target}/" unless self.is_quiet
       end
     end
 
     settings_yml = (dir + "settings.yml")
     unless settings_yml.exist?
       settings_yml.open("w") {}
-      yield(settings_yml.to_s) if block
+        puts "- #{settings_yml}" unless self.is_quiet
     end
 
     return true
   end
 
+  # Returns a Node instance.
+  #
+  # @param[String] name The name of the node.
+  def node(name)
+    return node_manager.find(name)
+  end
+
   # Uploads and applies configuration to the nodes, calls #upload and #apply.
-  def upload_and_apply(nodes, &block)
-    upload(nodes, &block)
-    apply(nodes, &block)
+  #
+  # @params[Array<String>] nodes A list of node names.
+  def upload_and_apply(nodes)
+    node_manager.assert_known(nodes)
+
+    Node.prepare_upload do
+      for node in nodes
+        node_manager.find(node).upload_and_apply
+      end
+    end
   end
 
   # Uploads configuration information to remote nodes.
   #
   # @param [Array<String>] nodes A list of node names.
-  # @yield [node, success, error] Yields status information to the optionally supplied block.
-  # @yieldparam [String] node The name of the node.
-  # @yieldparam [String] success A message indicating success.
-  # @yieldparam [String] error A message indicating error.
-  # @raise [NoSuchNode] Raised if asked to operate on an unknown node.
-  def upload(nodes, &block)
-    assert_known_nodes(nodes)
+  def upload(nodes)
+    node_manager.assert_known(nodes)
 
-    # TODO either do this in memory or scope this to the PID to allow concurrency
-    solo_rb = Pathname.new("solo.rb.tmp")
-    solo_rb.open("w") {|h| h.write(SOLO_RB_CONTENT)}
-    chef_solo_apply = Pathname.new("chef-solo-apply.tmp")
-    chef_solo_apply.open("w") {|h| h.write(CHEF_SOLO_APPLY_CONTENT)}
-    tarball = Pathname.new("pocketknife.tmp")
-    tarball.open("w") do |handle|
-      Archive::Tar::Minitar.pack(
-        [
-          VAR_POCKETKNIFE_COOKBOOKS.basename.to_s,
-          VAR_POCKETKNIFE_SITE_COOKBOOKS.basename.to_s,
-          VAR_POCKETKNIFE_ROLES.basename.to_s,
-          solo_rb.to_s,
-          chef_solo_apply.to_s
-        ],
-        handle
-      )
-    end
-
-    for node in nodes
-      rye = rye_for_node(node)
-
-      yield(node, "Uploading configuration") if block && ! is_quiet
-
-      yield(node, "Removing old files") if block && ! is_quiet
-      rye.execute <<-HERE
-        umask 0377 &&
-          rm -rf "#{ETC_CHEF}" "#{VAR_POCKETKNIFE}" "#{VAR_POCKETKNIFE_CACHE}" "#{CHEF_SOLO_APPLY}" "#{CHEF_SOLO_APPLY_ALIAS}" &&
-          mkdir -p "#{ETC_CHEF}" "#{VAR_POCKETKNIFE}" "#{VAR_POCKETKNIFE_CACHE}" "#{CHEF_SOLO_APPLY.dirname}"
-      HERE
-
-      yield(node, "Uploading new files") if block && ! is_quiet
-      rye.file_upload(node_json_path_for(node).to_s, NODE_JSON.to_s)
-      rye.file_upload(tarball.to_s, VAR_POCKETKNIFE_TARBALL.to_s)
-
-      yield(node, "Installing new files") if block && ! is_quiet
-      commands = <<-HERE
-        cd "#{VAR_POCKETKNIFE_CACHE}" &&
-          tar xf "#{VAR_POCKETKNIFE_TARBALL}" &&
-          chmod -R u+rwX,go= . &&
-          chown -R root:root . &&
-          mv "#{solo_rb}" "#{SOLO_RB}" &&
-          mv "#{chef_solo_apply}" "#{CHEF_SOLO_APPLY}" &&
-          chmod u+x "#{CHEF_SOLO_APPLY}" &&
-          ln -s "#{CHEF_SOLO_APPLY.basename}" "#{CHEF_SOLO_APPLY_ALIAS}" &&
-          rm "#{VAR_POCKETKNIFE_TARBALL}" &&
-          mv * "#{VAR_POCKETKNIFE}"
-      HERE
-      puts rye.execute(commands)
-
-      yield(node, "Finished uploading!") if block && ! is_quiet
-
-      rye.disconnect
+    Node.prepare_upload do
+      for node in nodes
+        node_manager.find(node).upload
+      end
     end
   end
 
   # Applies configurations to remote nodes.
   #
   # @param [Array<String>] nodes A list of node names.
-  # @yield [node, success, error] Yields status information to the optionally supplied block.
-  # @yieldparam [String] node The name of the node.
-  # @yieldparam [String] success A message indicating success.
-  # @yieldparam [String] error A message indicating error.
-  # @raise [NoSuchNode] Raised if asked to operate on an unknown node.
-  # @raise [UnsupportedInstallationPlatform] Raised if there's no installation information for this platform.
-  def apply(nodes, &block)
-    assert_known_nodes(nodes)
+  def apply(nodes)
+    node_manager.assert_known(nodes)
 
     for node in nodes
-      rye = rye_for_node(node)
-
-      install_node(node, rye, &block)
-
-      yield(node, "Applying configuration") if block && ! is_quiet
-      command = "chef-solo -j #{NODE_JSON}"
-      command << " -l debug" if is_verbose
-      result = rye.execute(command)
-      yield(node, "Applied: #{command}\n#{result.stdout}") if block
-
-      yield(node, "Finished applying!") if block && ! is_quiet
-
-      rye.disconnect
-    end
-  end
-
-  # Installs Chef and its dependencies on a node if needed.
-  #
-  # @param [Array<String>] node A node name.
-  # @param [Rye::Box] rye A Rye::Box connection.
-  # @yield [node, success, error] Yields status information to the optionally supplied block.
-  # @yieldparam [String] node The name of the node.
-  # @yieldparam [String] success A message indicating success.
-  # @yieldparam [String] error A message indicating error.
-  def install_node(node, rye, &block)
-    unless node_has_executable(rye, "chef-solo")
-      case can_install
-      when nil
-        # Prompt for installation
-        print "? #{node}: Chef not found. Install it and its dependencies? (Y/n) "
-        STDOUT.flush
-        answer = STDIN.gets.chomp
-        case answer
-        when /^y/i, ''
-          # Continue with install
-        else
-          raise NotInstalling, "Chef isn't installed, but user doesn't want to install it."
-        end
-      when true
-        # User wanted us to install
-      else
-        # Don't install
-        raise NotInstalling, "Chef isn't installed, but user doesn't want to install it."
-      end
-
-      platform = platform_node(node, rye)
-
-      unless node_has_executable(rye, "ruby")
-        # Install ruby
-        command = \
-          case platform[:distributor].downcase
-          when /ubuntu/, /debian/, /gnu\/linux/
-            "DEBIAN_FRONTEND=noninteractive apt-get --yes install ruby ruby-dev libopenssl-ruby irb build-essential wget ssl-cert"
-          when /centos/, /red hat/, /scientific linux/
-            "yum -y install ruby ruby-shadow gcc gcc-c++ ruby-devel wget"
-          else
-            raise UnsupportedInstallationPlatform, "Can't install on node with unknown distrubtor: `#{platform[:distrubtor]}`"
-          end
-
-        yield(node, "Installing ruby") if block && ! is_quiet
-        output = rye.execute(command)
-        yield(node, "Installed ruby:\n#{output}") if block && ! is_quiet
-      end
-
-      unless node_has_executable(rye, "gem")
-        # Install gem
-        command = <<-HERE
-          cd /root &&
-            rm -rf rubygems-1.3.7 rubygems-1.3.7.tgz &&
-            wget http://production.cf.rubygems.org/rubygems/rubygems-1.3.7.tgz &&
-            tar zxf rubygems-1.3.7.tgz &&
-            cd rubygems-1.3.7 &&
-            ruby setup.rb --no-format-executable &&
-            rm -rf rubygems-1.3.7 rubygems-1.3.7.tgz
-        HERE
-        yield(node, "Installing rubygems") if block && ! is_quiet
-        output = rye.execute(command)
-        yield(node, "Installed rubygems:\n#{output}") if block && ! is_quiet
-      end
-
-      # Install chef
-      command = "gem install --no-rdoc --no-ri chef"
-      yield(node, "Installing chef") if block && ! is_quiet
-      output = rye.execute(command)
-      yield(node, "Installed chef:\n#{output}") if block && ! is_quiet
-    end
-  end
-
-  # Returns information describing the node.
-  #
-  # The information is formatted similar to this:
-  #   {
-  #     :distributor=>"Ubuntu", # String with distributor name
-  #     :codename=>"maverick", # String with release codename
-  #     :release=>"10.10", # String with release number
-  #     :version=>10.1 # Float with release number
-  #   }
-  #
-  # @param [String] node The node name.
-  # @param [Rye::Box] rye A Rye::Box connection.
-  # @return [Hash<String, Object] Return a hash describing the node, see above.
-  # @raise [UnsupportedInstallationPlatform] Raised if there's no installation information for this platform.
-  def platform_node(node, rye)
-    lsb_release = "/etc/lsb-release"
-    begin
-      output = rye.cat(lsb_release).to_s
-      result = {}
-      result[:distributor] = output[/DISTRIB_ID\s*=\s*(.+?)$/, 1]
-      result[:release] = output[/DISTRIB_RELEASE\s*=\s*(.+?)$/, 1]
-      result[:codename] = output[/DISTRIB_CODENAME\s*=\s*(.+?)$/, 1]
-      result[:version] = result[:release].to_f
-
-      if result[:distributor] && result[:release] && result[:codename] && result[:version]
-        return result
-      else
-        raise UnsupportedInstallationPlatform, "Can't install on node '#{node}' with invalid '#{lsb_release}' file"
-      end
-    rescue Rye::Err
-      raise UnsupportedInstallationPlatform, "Can't install on node '#{node}' without '#{lsb_release}'"
-    end
-  end
-
-  # Returns the known node names for this project.
-  #
-  # @return [Array<String>] Node names.
-  def known_nodes
-    dir = Pathname.new("nodes")
-    json_extension = /\.json$/
-    if dir.directory?
-      return dir.entries.select do |path|
-        path.to_s =~ json_extension
-      end.map do |path|
-        path.to_s.sub(json_extension, "")
-      end
-    else
-      raise Errno::ENOENT, "Can't find 'nodes' directory."
-    end
-  end
-
-  # @private
-  ETC_CHEF = Pathname.new("/etc/chef")
-  # @private
-  SOLO_RB = ETC_CHEF + "solo.rb"
-  # @private
-  NODE_JSON = ETC_CHEF + "node.json"
-  # @private
-  VAR_POCKETKNIFE = Pathname.new("/var/local/pocketknife")
-  # @private
-  VAR_POCKETKNIFE_CACHE = VAR_POCKETKNIFE + "cache"
-  # @private
-  VAR_POCKETKNIFE_TARBALL = VAR_POCKETKNIFE_CACHE + "pocketknife.tmp"
-  # @private
-  VAR_POCKETKNIFE_COOKBOOKS = VAR_POCKETKNIFE + "cookbooks"
-  # @private
-  VAR_POCKETKNIFE_SITE_COOKBOOKS = VAR_POCKETKNIFE + "site-cookbooks"
-  # @private
-  VAR_POCKETKNIFE_ROLES = VAR_POCKETKNIFE + "roles"
-  # @private
-  SOLO_RB_CONTENT = <<-HERE
-file_cache_path "#{VAR_POCKETKNIFE_CACHE}"
-cookbook_path ["#{VAR_POCKETKNIFE_COOKBOOKS}", "#{VAR_POCKETKNIFE_SITE_COOKBOOKS}"]
-role_path "#{VAR_POCKETKNIFE_ROLES}"
-  HERE
-  # @private
-  CHEF_SOLO_APPLY = Pathname.new("/usr/local/sbin/chef-solo-apply")
-  # @private
-  CHEF_SOLO_APPLY_ALIAS = CHEF_SOLO_APPLY.dirname + "csa"
-  # @private
-  CHEF_SOLO_APPLY_CONTENT = <<-HERE
-#!/bin/sh
-chef-solo -j #{NODE_JSON} "$@"
-  HERE
-
-  # Asserts that the specified nodes are known to Pocketknife.
-  #
-  # @param [Array<String>] nodes A list of node names.
-  # @raise [NoSuchNode] Raised if there's an unknown node.
-  def assert_known_nodes(nodes)
-    @known ||= known_nodes
-    unknown = nodes - @known
-
-    unless unknown.empty?
-      raise NoSuchNode.new("No configuration found for node: #{unknown.first}" , unknown.first)
-    end
-  end
-
-  # Returns a Rye::Box connection for the given node. The credentials are looked up through Credentials.
-  #
-  # @param [String] node The node name.
-  # @return [Rye::Box] A Rye::Box connection.
-  def rye_for_node(node)
-    credentials = Credentials.for_node(node)
-    rye = Rye::Box.new(*credentials)
-    rye.disable_safe_mode
-    return rye
-  end
-
-  # Returns a Pathname for the node's JSON file.
-  #
-  # @param [String] node A node name.
-  # @return [Pathname] The JSON file.
-  # @raise [NoSuchNode] Raised if asked to operate on an unknown node.
-  def node_json_path_for(node)
-    assert_known_nodes([node])
-    return Pathname.new("nodes") + "#{node}.json"
-  end
-
-  # Returns whether the remote node has the given executable.
-  #
-  # @param [Rye::Box] rye A connection.
-  # @param [String] executable A name of an executable, e.g. <tt>chef-solo</tt>.
-  # @return [Boolean] Has executable?
-  def node_has_executable(rye, executable)
-    begin
-      rye.execute(%{which "#{executable}" && test -x `which "#{executable}"`})
-      return true
-    rescue Rye::Err
-      return false
+      node_manager.find(node).apply
     end
   end
 end

@@ -591,6 +591,13 @@ OPTIONS:
 
       nodes = arguments
 
+      if nodes.empty?
+        puts parser
+        puts
+        puts "ERROR: No nodes specified."
+        exit -1
+      end
+
       begin
         if options[:upload]
           pocketknife.upload(nodes)

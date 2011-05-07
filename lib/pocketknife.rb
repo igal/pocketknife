@@ -278,7 +278,7 @@ class Pocketknife
         case self.pocketknife.can_install
         when nil
           # Prompt for installation
-          print "? #{node}: Chef not found. Install it and its dependencies? (Y/n) "
+          print "? #{self.name}: Chef not found. Install it and its dependencies? (Y/n) "
           STDOUT.flush
           answer = STDIN.gets.chomp
           case answer

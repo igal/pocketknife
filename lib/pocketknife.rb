@@ -645,10 +645,10 @@ OPTIONS:
       end
     end
 
-    settings_yml = (dir + "settings.yml")
-    unless settings_yml.exist?
-      settings_yml.open("w") {}
-        puts "- #{settings_yml}" unless self.is_quiet
+    credentials_yml = (dir + "credentials.yml")
+    unless credentials_yml.exist?
+      credentials_yml.open("w") {}
+        puts "- #{credentials_yml}" unless self.is_quiet
     end
 
     return true

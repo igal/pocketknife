@@ -1,4 +1,7 @@
 class Pocketknife
+  # == Version
+  #
+  # Information about the Pocketknife version.
   module Version
     MAJOR = 0
     MINOR = 0

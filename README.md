@@ -3,7 +3,7 @@ pocketknife
 
 `pocketknife` is a devops tool for managing computers running `chef-solo`, powered by [Opscode Chef](http://www.opscode.com/chef/).
 
-Using `pocketknife`, you create a project that describes the configuration of your computers and then apply it to bring them to the intended state.
+Using `pocketknife`, you create a project that describes the configuration of your computers and then deploy it to bring them to their intended state.
 
 With `pocketknife`, you don't need to setup or manage a specialized `chef-server` node or rely on an unreliable network connection to a distant hosted service whose security you don't control, deal with managing `chef`'s security keys, or deal with manually synchronizing data with the `chef-server` datastore.
 
@@ -75,9 +75,11 @@ Finally, deploy your configuration to the remote machine and see the results. Fo
 
     pocketknife henrietta
 
-Applying a configuration to a node will cause `pocketknife` to check whether `chef` is installed. It it's not present, it will prompt you for whether you'd like to have it automatically installed. You can run `pocketknife -i` to always install chef without prompting if its needed, or run `pocketknife -I` to never install chef automatically if its needed and just quit.
+When deploying a configuration to a node, `pocketknife` will check whether Chef and its dependencies are installed. It something is missing, it will prompt you for whether you'd like to have it install them automatically.
 
-If something went wrong while applying the configuration, you may want to view `chef`'s verbose logging information by applying the configurations with the `-v` option. For example, apply the configuration to `henrietta` with verbose logging:
+To always install Chef and its dependencies when they're needed, without prompts, use the `-i` option, e.g. `pocketknife -i henrietta`. Or to never install Chef and its dependencies, use the `-I` option, which will cause the program to quit with an error rather than prompting if Chef or its dependencies aren't installed.
+
+If something goes wrong while deploying the configuration, you can display verbose logging from `pocketknife` and Chef by using the `-v` option. For example, deploy the configuration to `henrietta` with verbose logging:
 
     pocketknife -v henrietta
 

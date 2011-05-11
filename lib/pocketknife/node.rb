@@ -284,12 +284,15 @@ cd "#{VAR_POCKETKNIFE_CACHE}" &&
     # @param [String] commands Shell commands to execute.
     # @param [Boolean] immediate Display execution information immediately to STDOUT, rather than returning it as an object when done.
     # @return [Rye::Rap] A result object describing the completed execution.
+    # @raise [ExecutionError] Raised if something goes wrong with execution.
     def execute(commands, immediate=false)
       self.say("Executing:\n#{commands}", false)
       if immediate
         self.connection.stdout_hook {|line| puts line}
       end
       return self.connection.execute("(#{commands}) 2>&1")
+    rescue Rye::Err => e
+      raise Pocketknife::ExecutionError.new(self.name, commands, e, immediate)
     ensure
       self.connection.stdout_hook = nil
     end

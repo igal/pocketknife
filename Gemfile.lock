@@ -32,7 +32,6 @@ GEM
       net-scp (>= 1.0.2)
       net-ssh (>= 2.0.13)
       sysinfo (>= 0.7.3)
-    settingslogic (2.0.6)
     storable (0.8.7)
     sysinfo (0.7.3)
       drydock
@@ -50,5 +49,4 @@ DEPENDENCIES
   rcov
   rspec (~> 2.3.0)
   rye (~> 0.9.0)
-  settingslogic (~> 2.0.0)
   yard (~> 0.6.0)

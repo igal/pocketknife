@@ -272,8 +272,8 @@ cd "#{VAR_POCKETKNIFE_CACHE}" &&
       self.say("Finished applying!")
     end
 
-    # Uploads and applies the configuration to the node. See {#upload} and {#apply}.
-    def upload_and_apply
+    # Deploys the configuration to the node, which calls {#upload} and {#apply}.
+    def deploy
       self.upload
       self.apply
     end

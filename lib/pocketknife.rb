@@ -129,8 +129,8 @@ OPTIONS:
         if not options[:upload] and not options[:apply]
           pocketknife.upload_and_apply(nodes)
         end
-      rescue NoSuchNode, NotInstalling, UnsupportedInstallationPlatform => e
-        puts "! #{e}"
+      rescue NodeError => e
+        puts "! #{e.node}: #{e}"
         exit -1
       end
     end

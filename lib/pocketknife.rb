@@ -5,10 +5,8 @@ require "fileutils"
 # Gem libraries
 require "archive/tar/minitar"
 require "rye"
-require "settingslogic"
 
 # Related libraries
-require "pocketknife/credentials"
 require "pocketknife/errors"
 require "pocketknife/node"
 require "pocketknife/node_manager"
@@ -34,7 +32,6 @@ require "pocketknife/version"
 #
 # == Important classes
 #
-# * {Pocketknife::Credentials} describes the mapping of node names to hostnames.
 # * {Pocketknife::Node} describes how to upload and apply configurations to nodes, which are remote computers.
 # * {Pocketknife::NodeManager} finds, checks and manages nodes.
 # * {Pocketknife::NodeError} describes errors encountered when using nodes.
@@ -204,12 +201,6 @@ OPTIONS:
         FileUtils.mkdir_p(target)
         self.say("- #{target}/")
       end
-    end
-
-    credentials_yml = (dir + "credentials.yml")
-    unless credentials_yml.exist?
-      credentials_yml.open("w") {}
-        self.say("- #{credentials_yml}")
     end
 
     return true

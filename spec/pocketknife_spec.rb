@@ -46,7 +46,6 @@ describe "Pocketknife" do
         project = 'myproject'
         Pocketknife.new(:verbosity => false).create(project)
         Dir["#{Dir.pwd}/#{project}/*"].should_not be_empty
-        Dir["#{Dir.pwd}/#{project}/credentials.yml"].should_not be_empty
         Dir["#{Dir.pwd}/#{project}/cookbooks"].should_not be_empty
         Dir["#{Dir.pwd}/#{project}/nodes"].should_not be_empty
         Dir["#{Dir.pwd}/#{project}/roles"].should_not be_empty

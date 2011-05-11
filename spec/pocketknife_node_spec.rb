@@ -29,14 +29,20 @@ describe "PocketKnife::Node" do
     it "should instantiate a new connection" do
       node = node_factory(nil, nil, false)
       rye = mock(Rye::Box)
-      Pocketknife::Credentials.should_receive(:find).with("mynode").and_return(["host", {:user => "root"}])
       rye.should_receive(:disable_safe_mode)
-      Rye::Box.should_receive(:new).with("host", {:user => "root"}).and_return(rye)
+      Rye::Box.should_receive(:new).with("mynode", {:user => "root"}).and_return(rye)
 
       node.connection.should == rye
     end
 
     it "should return an existing connection" do
+      node = node_factory(nil, nil, false)
+      rye = mock(Rye::Box)
+      rye.should_receive(:disable_safe_mode)
+      Rye::Box.should_receive(:new).with("mynode", {:user => "root"}).and_return(rye)
+      node.connection.should == rye
+
+      node.connection.should == rye
     end
   end
 

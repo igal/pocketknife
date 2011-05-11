@@ -30,8 +30,7 @@ class Pocketknife
     # Caches result to {#connection_cache}.
     def connection
       return self.connection_cache ||= begin
-          credentials = Credentials.find(self.name)
-          rye = Rye::Box.new(*credentials)
+          rye = Rye::Box.new(self.name, :user => "root")
           rye.disable_safe_mode
           rye
         end

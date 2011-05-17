@@ -5,10 +5,8 @@ require "fileutils"
 # Gem libraries
 require "archive/tar/minitar"
 require "rye"
-require "settingslogic"
 
 # Related libraries
-require "pocketknife/credentials"
 require "pocketknife/errors"
 require "pocketknife/node"
 require "pocketknife/node_manager"
@@ -27,14 +25,13 @@ require "pocketknife/version"
 # * {cli} runs the command-line interpreter, whichi in turn executes the methods below.
 # * {#initialize} creates a new Pocketknife instance.
 # * {#create} creates a new project.
+# * {#deploy} deploys configurations to nodes, which uploads and applies.
 # * {#upload} uploads configurations to nodes.
 # * {#apply} applies existing configurations to nodes.
-# * {#upload_and_apply} uploads and applies configurations to nodes.
 # * {#node} finds a node to upload or apply configurations.
 #
 # == Important classes
 #
-# * {Pocketknife::Credentials} describes the mapping of node names to hostnames.
 # * {Pocketknife::Node} describes how to upload and apply configurations to nodes, which are remote computers.
 # * {Pocketknife::NodeManager} finds, checks and manages nodes.
 # * {Pocketknife::NodeError} describes errors encountered when using nodes.
@@ -127,7 +124,7 @@ OPTIONS:
         end
 
         if not options[:upload] and not options[:apply]
-          pocketknife.upload_and_apply(nodes)
+          pocketknife.deploy(nodes)
         end
       rescue NodeError => e
         puts "! #{e.node}: #{e}"
@@ -206,12 +203,6 @@ OPTIONS:
       end
     end
 
-    credentials_yml = (dir + "credentials.yml")
-    unless credentials_yml.exist?
-      credentials_yml.open("w") {}
-        self.say("- #{credentials_yml}")
-    end
-
     return true
   end
 
@@ -222,15 +213,15 @@ OPTIONS:
     return node_manager.find(name)
   end
 
-  # Uploads and applies configuration to the nodes, calls {#upload} and {#apply}.
+  # Deploys configuration to the nodes, calls {#upload} and {#apply}.
   #
   # @params[Array<String>] nodes A list of node names.
-  def upload_and_apply(nodes)
+  def deploy(nodes)
     node_manager.assert_known(nodes)
 
     Node.prepare_upload do
       for node in nodes
-        node_manager.find(node).upload_and_apply
+        node_manager.find(node).deploy
       end
     end
   end

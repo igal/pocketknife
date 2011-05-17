@@ -2,7 +2,6 @@ source "http://rubygems.org"
 
 gem "archive-tar-minitar", "~> 0.5.0"
 gem "rye", "~> 0.9.0"
-gem "settingslogic", "~> 2.0.0"
 
 group :development do
   gem "bluecloth", "~> 2.1.0"

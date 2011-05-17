@@ -30,8 +30,7 @@ class Pocketknife
     # Caches result to {#connection_cache}.
     def connection
       return self.connection_cache ||= begin
-          credentials = Credentials.find(self.name)
-          rye = Rye::Box.new(*credentials)
+          rye = Rye::Box.new(self.name, :user => "root")
           rye.disable_safe_mode
           rye
         end
@@ -273,8 +272,8 @@ cd "#{VAR_POCKETKNIFE_CACHE}" &&
       self.say("Finished applying!")
     end
 
-    # Uploads and applies the configuration to the node. See {#upload} and {#apply}.
-    def upload_and_apply
+    # Deploys the configuration to the node, which calls {#upload} and {#apply}.
+    def deploy
       self.upload
       self.apply
     end

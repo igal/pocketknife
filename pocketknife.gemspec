@@ -10,7 +10,14 @@ Gem::Specification.new do |s|
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Igal Koshevoy"]
   s.date = %q{2011-05-16}
-  s.description = %q{pocketknife is a tool for managing chef-solo nodes.}
+  s.description = %q{pocketknife is a devops tool for managing computers running chef-solo, powered by Opscode Chef.
+
+Using pocketknife, you create a project that describes the configuration of your computers and then deploy it to bring them to their intended state.
+
+With pocketknife, you don't need to setup or manage a specialized chef-server node or rely on an unreliable network connection to a distant hosted service whose security you don't control, deal with managing chef's security keys, or deal with manually synchronizing data with the chef-server datastore.
+
+With pocketknife, all of your cookbooks, roles and nodes are stored in easy-to-use files that you can edit, share, backup and version control with tools you already have.
+}
   s.email = %q{igal+pocketknife@pragmaticraft.com}
   s.executables = ["pocketknife", "pocketknife"]
   s.extra_rdoc_files = [
@@ -31,6 +38,7 @@ Gem::Specification.new do |s|
     "lib/pocketknife/node.rb",
     "lib/pocketknife/node_manager.rb",
     "lib/pocketknife/version.rb",
+    "pocketknife.gemspec",
     "spec/pocketknife_execution_error_spec.rb",
     "spec/pocketknife_node_manager_spec.rb",
     "spec/pocketknife_node_spec.rb",
@@ -43,7 +51,7 @@ Gem::Specification.new do |s|
   s.licenses = ["MIT"]
   s.require_paths = ["lib"]
   s.rubygems_version = %q{1.3.7}
-  s.summary = %q{pocketknife is a tool for managing chef-solo nodes.}
+  s.summary = %q{pocketknife is a devops tool for managing computers running chef-solo, powered by Opscode Chef.}
 
   if s.respond_to? :specification_version then
     current_version = Gem::Specification::CURRENT_SPECIFICATION_VERSION

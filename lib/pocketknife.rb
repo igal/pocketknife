@@ -137,7 +137,7 @@ OPTIONS:
   #
   # @return [String] A version string.
   def self.version
-    return "0.0.1"
+    return Pocketknife::Version::STRING
   end
 
   # Amount of detail to display? true means verbose, nil means normal, false means quiet.

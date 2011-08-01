@@ -3,16 +3,16 @@ class Pocketknife
   #
   # This class finds, validates and manages {Pocketknife::Node} instances for a {Pocketknife}.
   class NodeManager
-    # Instance of a Pocketknife.
+    # @return [Pocketknife] The Pocketknife instance to manage.
     attr_accessor :pocketknife
 
-    # Hash of Node instances by their name.
+    # @return [Hash{String => Pocketknife::Node}] Node instances by their name.
     attr_accessor :nodes
 
-    # Array of known nodes, used as cache by {#known_nodes}.
+    # @return [Array<Pocketknife::Node>] Known nodes, cached by {#known_nodes}.
     attr_accessor :known_nodes_cache
 
-    # Instantiate a new manager.
+    # Instantiates a new manager.
     #
     # @param [Pocketknife] pocketknife
     def initialize(pocketknife)
@@ -21,7 +21,7 @@ class Pocketknife
       self.known_nodes_cache = nil
     end
 
-    # Return a node. Uses cached value in {#known_nodes_cache} if available.
+    # Returns a node. Uses cached value in {#known_nodes_cache} if available.
     #
     # @param [String] name A node name to find, can be an abbrevation.
     # @return [Pocketknife::Node]
@@ -38,9 +38,9 @@ class Pocketknife
     #
     # The abbreviated node name given must match only one node exactly. For example, you'll get a {Pocketknife::NoSuchNode} if you ask for an abbreviated node by the name of <tt>giovanni</tt> when there are nodes called <tt>giovanni.boldini.it</tt> and <tt>giovanni.bellini.it</tt> -- you'd need to ask using a more specific name, such as <tt>giovanni.boldini</tt>.
     #
-    # @param [String] abbreviated_name A node name, which may be abbreviated, e.g. "henrietta".
-    # @return [String] The complete node name, e.g. "henrietta.swa.gov.it"
-    # @raise [NoSuchNode] A hostname could not be found for this node, either because the node doesn't exist or the abbreviated form isn't unique enough.
+    # @param [String] abbreviated_name A node name, which may be abbreviated, e.g. <tt>henrietta</tt>.
+    # @return [String] The complete node name, e.g. <tt>henrietta.swa.gov.it</tt>.
+    # @raise [NoSuchNode] Couldn't find this node, either because it doesn't exist or the abbreviation isn't unique.
     def hostname_for(abbreviated_name)
       if self.known_nodes.include?(abbreviated_name)
         return abbreviated_name
@@ -60,7 +60,8 @@ class Pocketknife
     # Asserts that the specified nodes are known to Pocketknife.
     #
     # @param [Array<String>] nodes A list of node names.
-    # @raise [Pocketknife::NoSuchNode] Raised if there's an unknown node.
+    # @return [void]
+    # @raise [Pocketknife::NoSuchNode] Couldn't find a node.
     def assert_known(names)
       for name in names
         # This will raise a NoSuchNode exception if there's a problem.
@@ -73,7 +74,7 @@ class Pocketknife
     # Caches results to {#known_nodes_cache}.
     #
     # @return [Array<String>] The node names.
-    # @raise [Errno::ENOENT] Raised if can't find the +nodes+ directory.
+    # @raise [Errno::ENOENT] Can't find the +nodes+ directory.
     def known_nodes
       return(self.known_nodes_cache ||= begin
           dir = Pathname.new("nodes")

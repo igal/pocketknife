@@ -43,6 +43,8 @@ class Pocketknife
   #   Pocketknife.cli('-h')
   #
   # @param [Array<String>] args A list of arguments from the command-line, which may include options (e.g. <tt>-h</tt>).
+  # @return [void]
+  # @raise [SystemExit] Something catastrophic happened, e.g. user passed invalid options to interpreter.
   def self.cli(args)
     pocketknife = Pocketknife.new
 
@@ -135,24 +137,28 @@ OPTIONS:
 
   # Returns the software's version.
   #
-  # @return [String] A version string.
+  # @return [String] A version string, e.g. <tt>0.0.1</tt>.
   def self.version
     return Pocketknife::Version::STRING
   end
 
-  # Amount of detail to display? true means verbose, nil means normal, false means quiet.
+  # Amount of detail to display.
+  #
+  # @return [Nil, Boolean] +true+ means verbose, +nil+ means normal, +false+ means quiet.
   attr_accessor :verbosity
 
-  # Can chef and its dependencies be installed automatically if not found? true means perform installation without prompting, false means quit if chef isn't available, and nil means prompt the user for input.
+  # Should Chef and its dependencies be installed automatically if not found on a node?
+  #
+  # @return [Nil, Boolean] +true+ means perform the installation without prompting, +false+ means quit if Chef isn't found, and +nil+ means prompt the user to decide this interactively.
   attr_accessor :can_install
 
-  # {Pocketknife::NodeManager} instance.
+  # @return [Pocketknife::NodeManager] This instance's node manager.
   attr_accessor :node_manager
 
-  # Instantiate a new Pocketknife.
+  # Instantiates a new Pocketknife.
   #
-  # @option [Boolean] verbosity Amount of detail to display. +true+ means verbose, +nil+ means normal, +false+ means quiet.
-  # @option [Boolean] install Install Chef and its dependencies if needed? +true+ means do so automatically, +false+ means don't, and +nil+ means display a prompt to ask the user what to do.
+  # @option [Nil, Boolean] verbosity Amount of detail to display. +true+ means verbose, +nil+ means normal, +false+ means quiet.
+  # @option [Nil, Boolean] install Install Chef and its dependencies if needed? +true+ means do so automatically, +false+ means don't, and +nil+ means display a prompt to ask the user what to do.
   def initialize(opts={})
     self.verbosity   = opts[:verbosity]
     self.can_install = opts[:install]
@@ -160,10 +166,11 @@ OPTIONS:
     self.node_manager = NodeManager.new(self)
   end
 
-  # Display a message, but only if it's important enough
+  # Displays a message, but only if it's important enough.
   #
   # @param [String] message The message to display.
-  # @param [Boolean] importance How important is this? +true+ means important, +nil+ means normal, +false+ means unimportant.
+  # @param [Nil, Boolean] importance How important is this? +true+ means important, +nil+ means normal, +false+ means unimportant.
+  # @return [void]
   def say(message, importance=nil)
     display = \
       case self.verbosity
@@ -183,8 +190,9 @@ OPTIONS:
   # Creates a new project directory.
   #
   # @param [String] project The name of the project directory to create.
-  # @yield [path] Yields status information to the optionally supplied block.
+  # @yield status information to the optionally supplied block.
   # @yieldparam [String] path The path of the file or directory created.
+  # @return [void]
   def create(project)
     self.say("* Creating project in directory: #{project}")
 
@@ -206,16 +214,18 @@ OPTIONS:
     return true
   end
 
-  # Returns a Node instance.
+  # Returns a node.
   #
-  # @param[String] name The name of the node.
+  # @param [String] name The name of the node.
+  # @return [Pocketknife::Node]
   def node(name)
     return node_manager.find(name)
   end
 
   # Deploys configuration to the nodes, calls {#upload} and {#apply}.
   #
-  # @params[Array<String>] nodes A list of node names.
+  # @param [Array<String>] nodes A list of node names.
+  # @return [void]
   def deploy(nodes)
     node_manager.assert_known(nodes)
 
@@ -229,6 +239,7 @@ OPTIONS:
   # Uploads configuration information to remote nodes.
   #
   # @param [Array<String>] nodes A list of node names.
+  # @return [void]
   def upload(nodes)
     node_manager.assert_known(nodes)
 
@@ -242,6 +253,7 @@ OPTIONS:
   # Applies configurations to remote nodes.
   #
   # @param [Array<String>] nodes A list of node names.
+  # @return [void]
   def apply(nodes)
     node_manager.assert_known(nodes)
 

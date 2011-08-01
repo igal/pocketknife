@@ -8,6 +8,7 @@ class Pocketknife
     PATCH = 0
     BUILD = nil
 
+    # @return [String] The version as a string.
     STRING = [MAJOR, MINOR, PATCH, BUILD].compact.join('.')
   end
 end

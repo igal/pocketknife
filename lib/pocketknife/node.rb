@@ -3,16 +3,16 @@ class Pocketknife
   #
   # A node represents a remote computer that will be managed with Pocketknife and <tt>chef-solo</tt>. It can connect to a node, execute commands on it, install the stack, and upload and apply configurations to it.
   class Node
-    # String name of the node.
+    # @return [String] Name of the node.
     attr_accessor :name
 
-    # Instance of a {Pocketknife}.
+    # @return [Pocketknife] The Pocketknife this node is associated with.
     attr_accessor :pocketknife
 
-    # Instance of Rye::Box connection, cached by {#connection}.
+    # @return [Rye::Box] The Rye::Box connection, cached by {#connection}.
     attr_accessor :connection_cache
 
-    # Hash with information about platform, cached by {#platform}.
+    # @return [Hash{Symbol => String, Numeric}] Information about platform, cached by {#platform}.
     attr_accessor :platform_cache
 
     # Initialize a new node.
@@ -25,9 +25,11 @@ class Pocketknife
       self.connection_cache = nil
     end
 
-    # Returns a Rye::Box connection.
+    # Returns a connection.
     #
     # Caches result to {#connection_cache}.
+    #
+    # @return [Rye::Box]
     def connection
       return self.connection_cache ||= begin
           rye = Rye::Box.new(self.name, :user => "root")
@@ -40,6 +42,7 @@ class Pocketknife
     #
     # @param [String] message The message to display.
     # @param [Boolean] importance How important is this? +true+ means important, +nil+ means normal, +false+ means unimportant.
+    # @return [void]
     def say(message, importance=nil)
       self.pocketknife.say("* #{self.name}: #{message}", importance)
     end
@@ -68,14 +71,14 @@ class Pocketknife
     #
     # The information is formatted similar to this:
     #   {
-    #     :distributor=>"Ubuntu", # String with distributor name
-    #     :codename=>"maverick", # String with release codename
-    #     :release=>"10.10", # String with release number
-    #     :version=>10.1 # Float with release number
+    #     :distributor => "Ubuntu", # String with distributor name
+    #     :codename => "maverick", # String with release codename
+    #     :release => "10.10", # String with release number
+    #     :version => 10.1 # Float with release number
     #   }
     #
-    # @return [Hash<String, Object] Return a hash describing the node, see above.
-    # @raise [UnsupportedInstallationPlatform] Raised if there's no installation information for this platform.
+    # @return [Hash{Symbol => String, Numeric}] Return a hash describing the node, see above.
+    # @raise [UnsupportedInstallationPlatform] Don't know how to install on this platform.
     def platform
       return self.platform_cache ||= begin
         lsb_release = "/etc/lsb-release"
@@ -100,8 +103,9 @@ class Pocketknife
 
     # Installs Chef and its dependencies on a node if needed.
     #
-    # @raise [NotInstalling] Raised if Chef isn't installed, but user didn't allow installation.
-    # @raise [UnsupportedInstallationPlatform] Raised if there's no installation information for this platform.
+    # @return [void]
+    # @raise [NotInstalling] Can't install because user Chef isn't already present and user forbade automatic installation.
+    # @raise [UnsupportedInstallationPlatform] Don't know how to install on this platform.
     def install
       unless self.has_executable?("chef-solo")
         case self.pocketknife.can_install
@@ -136,6 +140,8 @@ class Pocketknife
     end
 
     # Installs Chef on the remote node.
+    #
+    # @return [void]
     def install_chef
       self.say("Installing chef...")
       self.execute("gem install --no-rdoc --no-ri chef", true)
@@ -143,6 +149,8 @@ class Pocketknife
     end
 
     # Installs Rubygems on the remote node.
+    #
+    # @return [void]
     def install_rubygems
       self.say("Installing rubygems...")
       self.execute(<<-HERE, true)
@@ -158,6 +166,8 @@ cd /root &&
     end
 
     # Installs Ruby on the remote node.
+    #
+    # @return [void]
     def install_ruby
       command = \
         case self.platform[:distributor].downcase
@@ -184,7 +194,8 @@ cd /root &&
     #     mynode.upload
     #   end
     #
-    # @yield [] Prepares the upload, executes the block, and cleans up the upload when done.
+    # @yield to execute the block, will prepare upload before block is invoked, and cleanup the temporary files afterwards.
+    # @return [void]
     def self.prepare_upload(&block)
       begin
         # TODO either do this in memory or scope this to the PID to allow concurrency
@@ -218,6 +229,8 @@ cd /root &&
     end
 
     # Cleans up cache of shared files uploaded to all nodes. This cache is created by the {prepare_upload} method.
+    #
+    # @return [void]
     def self.cleanup_upload
       [
         TMP_TARBALL,
@@ -231,6 +244,8 @@ cd /root &&
     # Uploads configuration information to node.
     #
     # IMPORTANT: You must first call {prepare_upload} to create the shared files that will be uploaded.
+    #
+    # @return [void]
     def upload
       self.say("Uploading configuration...")
 
@@ -263,6 +278,8 @@ cd "#{VAR_POCKETKNIFE_CACHE}" &&
     end
 
     # Applies the configuration to the node. Installs Chef, Ruby and Rubygems if needed.
+    #
+    # @return [void]
     def apply
       self.install
 
@@ -274,6 +291,8 @@ cd "#{VAR_POCKETKNIFE_CACHE}" &&
     end
 
     # Deploys the configuration to the node, which calls {#upload} and {#apply}.
+    #
+    # @return [void]
     def deploy
       self.upload
       self.apply
@@ -284,7 +303,7 @@ cd "#{VAR_POCKETKNIFE_CACHE}" &&
     # @param [String] commands Shell commands to execute.
     # @param [Boolean] immediate Display execution information immediately to STDOUT, rather than returning it as an object when done.
     # @return [Rye::Rap] A result object describing the completed execution.
-    # @raise [ExecutionError] Raised if something goes wrong with execution.
+    # @raise [ExecutionError] Something went wrong with the execution, the cause is described in the exception.
     def execute(commands, immediate=false)
       self.say("Executing:\n#{commands}", false)
       if immediate

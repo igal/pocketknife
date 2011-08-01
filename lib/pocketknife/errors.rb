@@ -3,7 +3,7 @@ class Pocketknife
   #
   # An error with a {Pocketknife::Node}. This is meant to be subclassed by a more specific error.
   class NodeError < StandardError
-    # The name of the node.
+    # @return [String] The name of the node.
     attr_accessor :node
 
     # Instantiate a new exception.
@@ -38,13 +38,13 @@ class Pocketknife
   #
   # Exception raised when something goes wrong executing commands against remote host.
   class ExecutionError < NodeError
-    # Command that failed.
+    # @return [String] Command that failed.
     attr_accessor :command
 
-    # Cause of exception, a {Rye:Err}.
+    # @return [Rye::Err] Cause of exception, a Rye:Err.
     attr_accessor :cause
 
-    # Was execution's output shown immediately? If so, don't include output in message.
+    # @return [Boolean] Was execution's output shown immediately? If so, don't include output in message.
     attr_accessor :immediate
 
     # Instantiates a new exception.

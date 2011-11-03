@@ -1,3 +1,8 @@
+if ENV['SIMPLECOV']
+  require 'simplecov'
+  SimpleCov.start
+end
+
 $LOAD_PATH.unshift(File.join(File.dirname(__FILE__), '..', 'lib'))
 $LOAD_PATH.unshift(File.dirname(__FILE__))
 require 'rspec'
@@ -8,5 +13,5 @@ require 'pocketknife'
 Dir["#{File.dirname(__FILE__)}/support/**/*.rb"].each {|f| require f}
 
 RSpec.configure do |config|
-  
+
 end

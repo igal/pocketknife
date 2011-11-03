@@ -47,6 +47,12 @@ With pocketknife, all of your cookbooks, roles and nodes are stored in easy-to-u
 end
 Jeweler::RubygemsDotOrgTasks.new
 
+desc "Run coverage report using simplecov."
+task :simplecov do
+  ENV['SIMPLECOV'] = "true"
+  Rake::Task['spec'].invoke
+end
+
 require 'rspec/core'
 require 'rspec/core/rake_task'
 RSpec::Core::RakeTask.new(:spec) do |spec|
@@ -57,8 +63,6 @@ RSpec::Core::RakeTask.new(:rcov) do |spec|
   spec.pattern = 'spec/**/*_spec.rb'
   spec.rcov = true
 end
-
-task :default => :spec
 
 require 'yard'
 YARD::Rake::YardocTask.new

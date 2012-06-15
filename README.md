@@ -1,3 +1,5 @@
+[![Build Status](https://secure.travis-ci.org/igal/pocketknife.png)](http://travis-ci.org/igal/pocketknife)
+
 pocketknife
 ===========
 

@@ -59,7 +59,7 @@ class Pocketknife
 
     # Asserts that the specified nodes are known to Pocketknife.
     #
-    # @param [Array<String>] nodes A list of node names.
+    # @param [Array<String>] names A list of node names.
     # @return [void]
     # @raise [Pocketknife::NoSuchNode] Couldn't find a node.
     def assert_known(names)

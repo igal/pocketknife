@@ -1,5 +1,7 @@
 # encoding: utf-8
 
+task :default => :spec
+
 require 'rubygems'
 require 'bundler'
 begin

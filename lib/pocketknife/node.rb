@@ -60,7 +60,7 @@ class Pocketknife
     # @return [Boolean] Has executable?
     def has_executable?(executable)
       begin
-        self.connection.execute(%{which "#{executable}" && test -x `which "#{executable}"`})
+        self.connection.execute(%{which #{executable.shellescape} && test -x `which #{executable.shellescape}`})
         return true
       rescue Rye::Err
         return false
@@ -252,8 +252,8 @@ cd /root &&
       self.say("Removing old files...", false)
       self.execute <<-HERE
 umask 0377 &&
-  rm -rf "#{ETC_CHEF}" "#{VAR_POCKETKNIFE}" "#{VAR_POCKETKNIFE_CACHE}" "#{CHEF_SOLO_APPLY}" "#{CHEF_SOLO_APPLY_ALIAS}" &&
-  mkdir -p "#{ETC_CHEF}" "#{VAR_POCKETKNIFE}" "#{VAR_POCKETKNIFE_CACHE}" "#{CHEF_SOLO_APPLY.dirname}"
+  rm -rf #{ETC_CHEF.shellescape} #{VAR_POCKETKNIFE.shellescape} #{VAR_POCKETKNIFE_CACHE.shellescape} #{CHEF_SOLO_APPLY.shellescape} #{CHEF_SOLO_APPLY_ALIAS.shellescape} &&
+  mkdir -p #{ETC_CHEF.shellescape} #{VAR_POCKETKNIFE.shellescape} #{VAR_POCKETKNIFE_CACHE.shellescape} #{CHEF_SOLO_APPLY.dirname.shellescape}
       HERE
 
       self.say("Uploading new files...", false)
@@ -262,17 +262,17 @@ umask 0377 &&
 
       self.say("Installing new files...", false)
       self.execute <<-HERE, true
-cd "#{VAR_POCKETKNIFE_CACHE}" &&
-  tar xf "#{VAR_POCKETKNIFE_TARBALL}" &&
+cd #{VAR_POCKETKNIFE_CACHE.shellescape} &&
+  tar xf #{VAR_POCKETKNIFE_TARBALL.shellescape} &&
   chmod -R u+rwX,go= . &&
   chown -R root:root . &&
-  mv "#{TMP_SOLO_RB}" "#{SOLO_RB}" &&
-  mv "#{TMP_CHEF_SOLO_APPLY}" "#{CHEF_SOLO_APPLY}" &&
-  chmod u+x "#{CHEF_SOLO_APPLY}" &&
-  ln -s "#{CHEF_SOLO_APPLY.basename}" "#{CHEF_SOLO_APPLY_ALIAS}" &&
-  rm "#{VAR_POCKETKNIFE_TARBALL}" &&
-  mv * "#{VAR_POCKETKNIFE}"
-      HERE
+  mv #{TMP_SOLO_RB.shellescape} #{SOLO_RB.shellescape} &&
+  mv #{TMP_CHEF_SOLO_APPLY.shellescape} #{CHEF_SOLO_APPLY.shellescape} &&
+  chmod u+x #{CHEF_SOLO_APPLY.shellescape} &&
+  ln -s #{CHEF_SOLO_APPLY.basename.shellescape} #{CHEF_SOLO_APPLY_ALIAS.shellescape} &&
+  rm #{VAR_POCKETKNIFE_TARBALL.shellescape} &&
+  mv * #{VAR_POCKETKNIFE.shellescape}
+        HERE
 
       self.say("Finished uploading!", false)
     end
@@ -284,7 +284,7 @@ cd "#{VAR_POCKETKNIFE_CACHE}" &&
       self.install
 
       self.say("Applying configuration...", true)
-      command = "chef-solo -j #{NODE_JSON}"
+      command = "chef-solo -j #{NODE_JSON.shellescape}"
       command << " -o #{self.pocketknife.runlist}" if self.pocketknife.runlist
       command << " -l debug" if self.pocketknife.verbosity == true
       self.execute(command, true)

@@ -55,13 +55,13 @@ describe "PocketKnife::Node" do
     end
 
     it "should find an existing executable" do
-      @node.connection.should_receive(:execute).with(%{which "chef-solo" && test -x `which "chef-solo"`}).and_return(true)
+      @node.connection.should_receive(:execute).with(%{which chef-solo && test -x `which chef-solo`}).and_return(true)
 
       @node.has_executable?("chef-solo").should be_true
     end
 
     it "should not find a missing executable" do
-      @node.connection.should_receive(:execute).with(%{which "chef-solo" && test -x `which "chef-solo"`}).and_raise(Rye::Err.new("omg"))
+      @node.connection.should_receive(:execute).with(%{which chef-solo && test -x `which chef-solo`}).and_raise(Rye::Err.new("omg"))
 
       @node.has_executable?("chef-solo").should be_false
     end
@@ -262,8 +262,8 @@ cd /root &&
 
         node.should_receive(:execute).with(<<-HERE)
 umask 0377 &&
-  rm -rf "/etc/chef" "/var/local/pocketknife" "/var/local/pocketknife/cache" "/usr/local/sbin/chef-solo-apply" "/usr/local/sbin/csa" &&
-  mkdir -p "/etc/chef" "/var/local/pocketknife" "/var/local/pocketknife/cache" "/usr/local/sbin"
+  rm -rf /etc/chef /var/local/pocketknife /var/local/pocketknife/cache /usr/local/sbin/chef-solo-apply /usr/local/sbin/csa &&
+  mkdir -p /etc/chef /var/local/pocketknife /var/local/pocketknife/cache /usr/local/sbin
         HERE
 
         node.connection.should_receive(:file_upload).with(local_node_json.to_s, "/etc/chef/node.json")
@@ -271,16 +271,21 @@ umask 0377 &&
         node.connection.should_receive(:file_upload).with(Pocketknife::Node::TMP_TARBALL.to_s, "/var/local/pocketknife/cache/pocketknife.tmp")
 
         node.should_receive(:execute).with(<<-HERE, true)
-cd "/var/local/pocketknife/cache" &&
-  tar xf "/var/local/pocketknife/cache/pocketknife.tmp" &&
+cd /var/local/pocketknife/cache &&
+  tar xf /var/local/pocketknife/cache/pocketknife.tmp &&
   chmod -R u+rwX,go= . &&
   chown -R root:root . &&
-  mv "solo.rb.tmp" "/etc/chef/solo.rb" &&
-  mv "chef-solo-apply.tmp" "/usr/local/sbin/chef-solo-apply" &&
-  chmod u+x "/usr/local/sbin/chef-solo-apply" &&
-  ln -s "chef-solo-apply" "/usr/local/sbin/csa" &&
-  rm "/var/local/pocketknife/cache/pocketknife.tmp" &&
-  mv * "/var/local/pocketknife"
+  mv solo.rb.tmp /etc/chef/solo.rb &&
+  mv chef-solo-apply.tmp /usr/local/sbin/chef-solo-apply &&
+  chmod u+x /usr/local/sbin/chef-solo-apply &&
+  ln -s chef-solo-apply /usr/local/sbin/csa &&
+  rm /var/local/pocketknife/cache/pocketknife.tmp &&
+  mv * /var/local/pocketknife
+        HERE
+
+        node.upload
+      end
+    end
         HERE
 
         node.upload

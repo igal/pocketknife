@@ -2,6 +2,15 @@
 require "pathname"
 require "fileutils"
 
+# TODO bundle shellwords for old rubies? e.g. 1.8.6
+require "shellwords"
+# TODO override more sanely?
+class Pathname
+  def shellescape
+    self.to_s.shellescape
+  end
+end
+
 # Gem libraries
 require "archive/tar/minitar"
 require "rye"

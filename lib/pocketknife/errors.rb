@@ -34,6 +34,30 @@ class Pocketknife
   class NotInstalling < NodeError
   end
 
+  # == InvalidTransferMechanism
+  #
+  # Exception raised when given an invalid transfer mechanism, e.g. not :tar or :rsync.
+  class InvalidTransferMechanism < NodeError
+    # @return [Symbol] Transfer mechanism that failed.
+    attr_accessor :mechanism
+
+    def initialize(mechanism, node)
+      super("Invalid transfer mechanism: #{mechanism}", node)
+    end
+  end
+
+  # == RsyncError
+  #
+  # Exception raised if rsync command failed.
+  class RsyncError < NodeError
+    # @return [String] Command that failed.
+    attr_accessor :command
+
+    def initialize(command, node)
+      super("Failed while rsyncing: #{command}", node)
+    end
+  end
+
   # == ExecutionError
   #
   # Exception raised when something goes wrong executing commands against remote host.

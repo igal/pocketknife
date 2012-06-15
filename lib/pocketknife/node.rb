@@ -197,6 +197,7 @@ cd /root &&
     # @yield to execute the block, will prepare upload before block is invoked, and cleanup the temporary files afterwards.
     # @return [void]
     def self.prepare_upload(&block)
+      # TODO make this an instance method so it can avoid creating a tarball if using :rsync
       begin
         # TODO either do this in memory or scope this to the PID to allow concurrency
         TMP_SOLO_RB.open("w") {|h| h.write(SOLO_RB_CONTENT)}
@@ -232,6 +233,7 @@ cd /root &&
     #
     # @return [void]
     def self.cleanup_upload
+      # TODO make this an instance method so it can avoid creating a tarball if using :rsync
       [
         TMP_TARBALL,
         TMP_SOLO_RB,
@@ -239,6 +241,36 @@ cd /root &&
       ].each do |path|
         path.unlink if path.exist?
       end
+    end
+
+    # Rsync files to a node.
+    #
+    # @param [Array] args Arguments to sent to +rsync+, e.g. options, filenames, and target.
+    # @return [void]
+    # @raise [RsyncError] Something went wrong with the rsync.
+    def rsync(*args)
+      command = ['rsync', *args.map{|o| o.shellescape}]
+      unless system *command
+        raise Pocketknife::RsyncError.new(command.join(' '), self.name)
+      end
+    end
+
+    # Rsync a file to a node with options: <tt>--update --copy-links</tt>
+    #
+    # @param [Array] args Arguments to sent to +rsync+, e.g. options, filename, and target.
+    # @return [void]
+    # @raise [RsyncError] Something went wrong with the rsync.
+    def rsync_file(*args)
+      self.rsync("-uL", *args)
+    end
+
+    # Rsync directory to a node with options: <tt>--recursive --update --copy-links --delete</tt>
+    #
+    # @param [Array] args Arguments to sent to +rsync+, e.g. options, directory name, and target.
+    # @return [void]
+    # @raise [RsyncError] Something went wrong with the rsync.
+    def rsync_directory(*args)
+      self.rsync("-ruL", "--delete", *args)
     end
 
     # Uploads configuration information to node.
@@ -256,12 +288,14 @@ umask 0377 &&
   mkdir -p #{ETC_CHEF.shellescape} #{VAR_POCKETKNIFE.shellescape} #{VAR_POCKETKNIFE_CACHE.shellescape} #{CHEF_SOLO_APPLY.dirname.shellescape}
       HERE
 
-      self.say("Uploading new files...", false)
-      self.connection.file_upload(self.local_node_json_pathname.to_s, NODE_JSON.to_s)
-      self.connection.file_upload(TMP_TARBALL.to_s, VAR_POCKETKNIFE_TARBALL.to_s)
+      case self.pocketknife.transfer_mechanism
+      when :tar
+        self.say("Uploading new files...", false)
+        self.connection.file_upload(self.local_node_json_pathname.to_s, NODE_JSON.to_s)
+        self.connection.file_upload(TMP_TARBALL.to_s, VAR_POCKETKNIFE_TARBALL.to_s)
 
-      self.say("Installing new files...", false)
-      self.execute <<-HERE, true
+        self.say("Installing new files...", false)
+        self.execute <<-HERE, true
 cd #{VAR_POCKETKNIFE_CACHE.shellescape} &&
   tar xf #{VAR_POCKETKNIFE_TARBALL.shellescape} &&
   chmod -R u+rwX,go= . &&
@@ -273,6 +307,26 @@ cd #{VAR_POCKETKNIFE_CACHE.shellescape} &&
   rm #{VAR_POCKETKNIFE_TARBALL.shellescape} &&
   mv * #{VAR_POCKETKNIFE.shellescape}
         HERE
+
+      when :rsync
+        self.say("Uploading new files...", false)
+        self.rsync_file("#{self.local_node_json_pathname}", "root@#{self.name}:#{NODE_JSON}")
+        self.rsync_file("#{TMP_SOLO_RB}", "root@#{self.name}:#{SOLO_RB}")
+        self.rsync_file("#{TMP_CHEF_SOLO_APPLY}", "root@#{self.name}:#{CHEF_SOLO_APPLY}")
+        self.rsync_directory("#{VAR_POCKETKNIFE_COOKBOOKS.basename}/", "root@#{self.name}:#{VAR_POCKETKNIFE_COOKBOOKS}")
+        self.rsync_directory("#{VAR_POCKETKNIFE_SITE_COOKBOOKS.basename}/", "root@#{self.name}:#{VAR_POCKETKNIFE_SITE_COOKBOOKS}")
+        self.rsync_directory("#{VAR_POCKETKNIFE_ROLES.basename}/", "root@#{self.name}:#{VAR_POCKETKNIFE_ROLES}")
+
+        self.say("Modifying new files...", false)
+        self.execute <<-HERE, true
+cd #{VAR_POCKETKNIFE_CACHE.shellescape} &&
+  chmod u+x #{CHEF_SOLO_APPLY.shellescape} &&
+  ln -s #{CHEF_SOLO_APPLY.basename.shellescape} #{CHEF_SOLO_APPLY_ALIAS.shellescape}
+        HERE
+
+      else
+        raise InvalidTransferMechanism.new(self.pocketknife.transfer_mechanism, self.name)
+      end
 
       self.say("Finished uploading!", false)
     end

@@ -253,9 +253,9 @@ cd /root &&
   end
 
   describe "#upload" do
-    it "should upload configuration" do
+    it "should upload configuration with tar" do
       mkproject do
-        node = node_factory
+        node = node_factory :transfer_mechanism => :tar
 
         local_node_json = node.local_node_json_pathname
         local_node_json.open("w") { |h| h.write("{}") }
@@ -286,6 +286,33 @@ cd /var/local/pocketknife/cache &&
         node.upload
       end
     end
+
+    it "should upload configuration with rsync" do
+      mkproject do
+        node = node_factory :transfer_mechanism => :rsync
+
+        local_node_json = node.local_node_json_pathname
+        local_node_json.open("w") { |h| h.write("{}") }
+
+        node.should_receive(:execute).with(<<-HERE)
+umask 0377 &&
+  rm -rf /etc/chef /var/local/pocketknife /var/local/pocketknife/cache /usr/local/sbin/chef-solo-apply /usr/local/sbin/csa &&
+  mkdir -p /etc/chef /var/local/pocketknife /var/local/pocketknife/cache /usr/local/sbin
+        HERE
+
+        base = "root@#{node.name}:"
+        k = Pocketknife::Node
+        node.should_receive(:rsync_file).with(local_node_json.to_s, "#{base}#{k::NODE_JSON}")
+        node.should_receive(:rsync_file).with("#{k::TMP_SOLO_RB}", "#{base}#{k::SOLO_RB}")
+        node.should_receive(:rsync_file).with("#{k::TMP_CHEF_SOLO_APPLY}", "#{base}#{k::CHEF_SOLO_APPLY}")
+        node.should_receive(:rsync_directory).with("#{k::VAR_POCKETKNIFE_COOKBOOKS.basename}/", "#{base}#{k::VAR_POCKETKNIFE_COOKBOOKS}")
+        node.should_receive(:rsync_directory).with("#{k::VAR_POCKETKNIFE_SITE_COOKBOOKS.basename}/", "#{base}#{k::VAR_POCKETKNIFE_SITE_COOKBOOKS}")
+        node.should_receive(:rsync_directory).with("#{k::VAR_POCKETKNIFE_ROLES.basename}/", "#{base}#{k::VAR_POCKETKNIFE_ROLES}")
+
+        node.should_receive(:execute).with(<<-HERE, true)
+cd /var/local/pocketknife/cache &&
+  chmod u+x /usr/local/sbin/chef-solo-apply &&
+  ln -s chef-solo-apply /usr/local/sbin/csa
         HERE
 
         node.upload

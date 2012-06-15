@@ -312,12 +312,21 @@ cd #{VAR_POCKETKNIFE_CACHE.shellescape} &&
 
       when :rsync
         self.say("Uploading new files...", false)
+
         self.rsync_file("#{self.local_node_json_pathname}", "root@#{self.name}:#{NODE_JSON}")
-        self.rsync_file("#{TMP_SOLO_RB}", "root@#{self.name}:#{SOLO_RB}")
-        self.rsync_file("#{TMP_CHEF_SOLO_APPLY}", "root@#{self.name}:#{CHEF_SOLO_APPLY}")
-        self.rsync_directory("#{VAR_POCKETKNIFE_COOKBOOKS.basename}/", "root@#{self.name}:#{VAR_POCKETKNIFE_COOKBOOKS}")
-        self.rsync_directory("#{VAR_POCKETKNIFE_SITE_COOKBOOKS.basename}/", "root@#{self.name}:#{VAR_POCKETKNIFE_SITE_COOKBOOKS}")
-        self.rsync_directory("#{VAR_POCKETKNIFE_ROLES.basename}/", "root@#{self.name}:#{VAR_POCKETKNIFE_ROLES}")
+
+        %w[SOLO_RB CHEF_SOLO_APPLY].each do |fragment|
+          source = self.class.const_get("TMP_#{fragment}")
+          target = self.class.const_get(fragment)
+          self.rsync_file("#{source}", "root@#{self.name}:#{target}")
+        end
+
+        %w[COOKBOOKS SITE_COOKBOOKS ROLES DATA_BAGS].each do |fragment|
+          target = self.class.const_get("VAR_POCKETKNIFE_#{fragment}")
+          source = target.basename
+          next unless source.exist?
+          self.rsync_directory("#{source}/", "root@#{self.name}:#{target}")
+        end
 
         self.say("Modifying new files...", false)
         self.execute <<-HERE, true

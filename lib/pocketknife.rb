@@ -61,6 +61,7 @@ class Pocketknife
   # @raise [SystemExit] Something catastrophic happened, e.g. user passed invalid options to interpreter.
   def self.cli(args)
     pocketknife = Pocketknife.new
+    timer = Time.now
 
     OptionParser.new do |parser|
       parser.banner = <<-HERE
@@ -151,6 +152,8 @@ OPTIONS:
         if not options[:upload] and not options[:apply]
           pocketknife.deploy(nodes)
         end
+
+        pocketknife.say("* SUCCESS! Took #{"%0.2f" % [Time.now-timer]} seconds")
       rescue NodeError => e
         puts "! #{e.node}: #{e}"
         exit -1

@@ -8,8 +8,9 @@ rescue LoadError
   require "#{File.dirname(__FILE__)}/shellwords"
 end
 
-# TODO override more sanely?
+# @!visibility private
 class Pathname
+  # @!visibility private
   def shellescape
     self.to_s.shellescape
   end

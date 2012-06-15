@@ -118,6 +118,7 @@ module Shellwords
   end
 end
 
+# @!visibility private
 class String
   # call-seq:
   #   str.shellsplit => array
@@ -138,6 +139,7 @@ class String
   end
 end
 
+# @!visibility private
 class Array
   # call-seq:
   #   array.shelljoin => string

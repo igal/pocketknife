@@ -203,15 +203,17 @@ cd /root &&
         TMP_SOLO_RB.open("w") {|h| h.write(SOLO_RB_CONTENT)}
         TMP_CHEF_SOLO_APPLY.open("w") {|h| h.write(CHEF_SOLO_APPLY_CONTENT)}
         TMP_TARBALL.open("w") do |handle|
+          items = [
+            VAR_POCKETKNIFE_COOKBOOKS.basename,
+            VAR_POCKETKNIFE_SITE_COOKBOOKS.basename,
+            VAR_POCKETKNIFE_ROLES.basename,
+            VAR_POCKETKNIFE_DATA_BAGS.basename,
+            TMP_SOLO_RB,
+            TMP_CHEF_SOLO_APPLY
+          ].reject { |o| not File.exist?(o) }.map {|o| o.to_s}
+
           Archive::Tar::Minitar.pack(
-            [
-              VAR_POCKETKNIFE_COOKBOOKS.basename.to_s,
-              VAR_POCKETKNIFE_SITE_COOKBOOKS.basename.to_s,
-              VAR_POCKETKNIFE_ROLES.basename.to_s,
-              VAR_POCKETKNIFE_DATA_BAGS.basename.to_s,
-              TMP_SOLO_RB.to_s,
-              TMP_CHEF_SOLO_APPLY.to_s
-            ],
+            items,
             handle
           )
         end

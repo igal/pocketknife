@@ -181,7 +181,7 @@ OPTIONS:
   # @return [Nil, String] Override runlist with a comma-separated list of recipes and roles.
   attr_accessor :runlist
 
-  # @return [Symbol] Use :rsync or :tar to transfer files. :rsync is faster, but requires you to have a working, ssh-enabled copy of rsync.
+  # @return [Symbol] Use :rsync or :tar to transfer files.
   attr_accessor :transfer_mechanism
 
   # Instantiates a new Pocketknife.

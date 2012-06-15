@@ -61,10 +61,32 @@ When deploying a configuration to a node, `pocketknife` will check whether Chef 
 
 To always install Chef and its dependencies when they're needed, without prompts, use the `-i` option, e.g. `pocketknife -i henrietta`. Or to never install Chef and its dependencies, use the `-I` option, which will cause the program to quit with an error rather than prompting if Chef or its dependencies aren't installed.
 
-More
-----
+Override runlist
+----------------
+
+Specify the runlist by using the `-r` option, which will override the one specified in the node, e.g.:
+
+    pocketknife -r mycookbook henrietta
+
+Transfer mechanisms
+-------------------
+
+Files can be uploaded to nodes using different transfer mechanisms:
+
+* `tar` - Uses one connection for execution of commands and uploads, and sends a tarball that's then extracted. Pros: Pure Ruby, reuses connection. Cons: Can't cope with symlinks, inefficient for sending a small change.
+* `rsync` - Uses one connection for execution of commands and then runs the `rsync` command to upload files. Pros: Handles symlinks, and is efficient for sending a small change. Cons: Requires `rsync` command, rather than being pure Ruby, and doesn't reuse the connection.
+
+You can specify the transfer mechanism with the `-t` option and the name of the mechanism, e.g.:
+
+    pocketknife -t rsync henrietta
+
+Override cookbooks
+------------------
 
 Override cookbooks in the `site-cookbooks` directory. This has the same structure as `cookbooks`, but any files you put here will override the contents of `cookbooks`. This is useful for storing the original code of a third-party cookbook in `cookbooks` and putting your customizations in `site-cookbooks`.
+
+Roles
+-----
 
 Optionally define roles in the `roles` directory that describe common behavior and attributes of your computers using JSON syntax using [chef's documentation](http://wiki.opscode.com/display/chef/Roles#Roles-AsJSON). For example, define a role called `ntp_client` by creating a file called `roles/ntp_client.json` with this content:
 

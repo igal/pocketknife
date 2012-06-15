@@ -157,6 +157,9 @@ OPTIONS:
       rescue NodeError => e
         puts "! #{e.node}: #{e}"
         exit -1
+      rescue Errno::ENOENT => e
+        puts "! #{e.message}"
+        exit -1
       end
     end
   end

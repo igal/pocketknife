@@ -32,7 +32,11 @@ describe "Pocketknife" do
       describe "without name" do
         it "should raise an exception and not create anything" do
           mktmpdircd do |dir|
-            lambda { Pocketknife.cli(['-c', '-q']) }.should raise_error(Errno::ENOENT)
+            lambda {
+              silence_stream(STDOUT) {
+                Pocketknife.cli(['-c', '-q'])
+              }
+            }.should raise_error(SystemExit)
             Dir["#{Dir.pwd}/*"].should be_empty
           end
         end

@@ -7,9 +7,9 @@ group :development do
   gem "rake"
 
   gem "bluecloth", "~> 2.2.0"
-  gem "rspec", "~> 2.7.0"
-  gem "yard", "~> 0.7.0"
-  gem "jeweler", "~> 1.6.0"
+  gem "rspec", "~> 2.10.0"
+  gem "yard", "~> 0.8.0"
+  gem "jeweler", "~> 1.8.0"
 
   platform :mri_18 do
     gem 'rcov', :require => false
@@ -18,6 +18,7 @@ group :development do
 
   platform :mri_19 do
     gem 'simplecov', :require => false
-    gem 'ruby-debug19'
+    gem 'debugger-ruby_core_source'
+    gem 'debugger'
   end
 end

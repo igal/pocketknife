@@ -38,24 +38,6 @@ Go into your new *project* directory:
 
 Create cookbooks in the `cookbooks` directory that describe how your computers should be configured. These are standard `chef` cookbooks, like the [opscode/cookbooks](https://github.com/opscode/cookbooks). For example, download a copy of [opscode/cookbooks/ntp](https://github.com/opscode/cookbooks/tree/master/ntp) as `cookbooks/ntp`.
 
-Override cookbooks in the `site-cookbooks` directory. This has the same structure as `cookbooks`, but any files you put here will override the contents of `cookbooks`. This is useful for storing the original code of a third-party cookbook in `cookbooks` and putting your customizations in `site-cookbooks`.
-
-Optionally define roles in the `roles` directory that describe common behavior and attributes of your computers using JSON syntax using [chef's documentation](http://wiki.opscode.com/display/chef/Roles#Roles-AsJSON). For example, define a role called `ntp_client` by creating a file called `roles/ntp_client.json` with this content:
-
-    {
-      "name": "ntp_client",
-      "chef_type": "role",
-      "json_class": "Chef::Role",
-      "run_list": [
-        "recipe[ntp]"
-      ],
-      "override_attributes": {
-        "ntp": {
-          "servers": ["0.pool.ntp.org", "1.pool.ntp.org", "2.pool.ntp.org", "3.pool.ntp.org"]
-        }
-      }
-    }
-
 Define a new node using the `chef` JSON syntax for [runlist](http://wiki.opscode.com/display/chef/Setting+the+run_list+in+JSON+during+run+time) and [attributes](http://wiki.opscode.com/display/chef/Attributes). For example, to define a node with the hostname `henrietta.swa.gov.it` create the `nodes/henrietta.swa.gov.it.json` file, and add the contents below so it uses the `ntp_client` role and overrides its attributes to use a local NTP server:
 
     {
@@ -78,6 +60,30 @@ Finally, deploy your configuration to the remote machine and see the results. Fo
 When deploying a configuration to a node, `pocketknife` will check whether Chef and its dependencies are installed. It something is missing, it will prompt you for whether you'd like to have it install them automatically.
 
 To always install Chef and its dependencies when they're needed, without prompts, use the `-i` option, e.g. `pocketknife -i henrietta`. Or to never install Chef and its dependencies, use the `-I` option, which will cause the program to quit with an error rather than prompting if Chef or its dependencies aren't installed.
+
+More
+----
+
+Override cookbooks in the `site-cookbooks` directory. This has the same structure as `cookbooks`, but any files you put here will override the contents of `cookbooks`. This is useful for storing the original code of a third-party cookbook in `cookbooks` and putting your customizations in `site-cookbooks`.
+
+Optionally define roles in the `roles` directory that describe common behavior and attributes of your computers using JSON syntax using [chef's documentation](http://wiki.opscode.com/display/chef/Roles#Roles-AsJSON). For example, define a role called `ntp_client` by creating a file called `roles/ntp_client.json` with this content:
+
+    {
+      "name": "ntp_client",
+      "chef_type": "role",
+      "json_class": "Chef::Role",
+      "run_list": [
+        "recipe[ntp]"
+      ],
+      "override_attributes": {
+        "ntp": {
+          "servers": ["0.pool.ntp.org", "1.pool.ntp.org", "2.pool.ntp.org", "3.pool.ntp.org"]
+        }
+      }
+    }
+
+Debugging
+---------
 
 If something goes wrong while deploying the configuration, you can display verbose logging from `pocketknife` and Chef by using the `-v` option. For example, deploy the configuration to `henrietta` with verbose logging:
 

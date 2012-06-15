@@ -2,8 +2,12 @@
 require "pathname"
 require "fileutils"
 
-# TODO bundle shellwords for old rubies? e.g. 1.8.6
-require "shellwords"
+begin
+  require "shellwords"
+rescue LoadError
+  require "#{File.dirname(__FILE__)}/shellwords"
+end
+
 # TODO override more sanely?
 class Pathname
   def shellescape

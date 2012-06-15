@@ -196,6 +196,7 @@ cd /root &&
               VAR_POCKETKNIFE_COOKBOOKS.basename.to_s,
               VAR_POCKETKNIFE_SITE_COOKBOOKS.basename.to_s,
               VAR_POCKETKNIFE_ROLES.basename.to_s,
+              VAR_POCKETKNIFE_DATA_BAGS.basename.to_s,
               TMP_SOLO_RB.to_s,
               TMP_CHEF_SOLO_APPLY.to_s
             ],
@@ -323,12 +324,17 @@ cd "#{VAR_POCKETKNIFE_CACHE}" &&
     # Remote path to pocketknife's roles
     # @private
     VAR_POCKETKNIFE_ROLES = VAR_POCKETKNIFE + "roles"
+    # Remote path to pocketknife's databags
+    # @private
+    VAR_POCKETKNIFE_DATA_BAGS = VAR_POCKETKNIFE + "data_bags"
+
     # Content of the solo.rb file
     # @private
     SOLO_RB_CONTENT = <<-HERE
 file_cache_path "#{VAR_POCKETKNIFE_CACHE}"
 cookbook_path ["#{VAR_POCKETKNIFE_COOKBOOKS}", "#{VAR_POCKETKNIFE_SITE_COOKBOOKS}"]
 role_path "#{VAR_POCKETKNIFE_ROLES}"
+data_bag_path "#{VAR_POCKETKNIFE_DATA_BAGS}"
     HERE
     # Remote path to chef-solo-apply
     # @private

@@ -68,3 +68,8 @@ end
 
 require 'yard'
 YARD::Rake::YardocTask.new
+
+desc "List undocumented code"
+task :undoc do
+  system "yardoc --list-undoc | grep -v 'Unrecognized/invalid option'"
+end

@@ -98,6 +98,10 @@ OPTIONS:
         pocketknife.can_install = false
       end
 
+      parser.on("-r", "--runlist RUNLIST", "Override runlist with a comma-separated list of recipes and roles") do |v|
+        pocketknife.runlist = v
+      end
+
       begin
         arguments = parser.parse!
       rescue OptionParser::MissingArgument => e
@@ -155,6 +159,9 @@ OPTIONS:
   # @return [Pocketknife::NodeManager] This instance's node manager.
   attr_accessor :node_manager
 
+  # @return [Nil, String] Override runlist with a comma-separated list of recipes and roles.
+  attr_accessor :runlist
+
   # Instantiates a new Pocketknife.
   #
   # @option [Nil, Boolean] verbosity Amount of detail to display. +true+ means verbose, +nil+ means normal, +false+ means quiet.
@@ -162,6 +169,7 @@ OPTIONS:
   def initialize(opts={})
     self.verbosity   = opts[:verbosity]
     self.can_install = opts[:install]
+    self.runlist     = opts[:runlist]
 
     self.node_manager = NodeManager.new(self)
   end

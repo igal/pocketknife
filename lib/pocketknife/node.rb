@@ -285,6 +285,7 @@ cd "#{VAR_POCKETKNIFE_CACHE}" &&
 
       self.say("Applying configuration...", true)
       command = "chef-solo -j #{NODE_JSON}"
+      command << " -o #{self.pocketknife.runlist}" if self.pocketknife.runlist
       command << " -l debug" if self.pocketknife.verbosity == true
       self.execute(command, true)
       self.say("Finished applying!")

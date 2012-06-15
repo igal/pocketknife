@@ -1,9 +1,12 @@
 require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
 
 describe "PocketKnife::Node" do
-  def node_factory(name=nil, pocketknife=nil, connection=nil)
-    name ||= "mynode"
-    pocketknife ||= Pocketknife.new(:verbosity => false)
+  def node_factory(opts={})
+    connection = opts.delete(:connection)
+    name = opts.delete(:name) || "mynode"
+    pocketknife = opts.delete(:pocketknife) || Pocketknife.new(opts)
+    pocketknife.verbosity = false
+
     node = Pocketknife::Node.new(name, pocketknife)
     node.stub(:connection => connection || true) unless connection == false
     return node
@@ -13,7 +16,7 @@ describe "PocketKnife::Node" do
     before do
       @pocketknife = Pocketknife.new
       @name = "mynode"
-      @node = node_factory(@name, @pocketknife)
+      @node = node_factory(:name => @name, :pocketknife => @pocketknife)
     end
 
     it "should have a name" do
@@ -27,7 +30,7 @@ describe "PocketKnife::Node" do
 
   describe "#connection" do
     it "should instantiate a new connection" do
-      node = node_factory(nil, nil, false)
+      node = node_factory(:connection => false)
       rye = mock(Rye::Box)
       rye.should_receive(:disable_safe_mode)
       Rye::Box.should_receive(:new).with("mynode", {:user => "root"}).and_return(rye)
@@ -36,7 +39,7 @@ describe "PocketKnife::Node" do
     end
 
     it "should return an existing connection" do
-      node = node_factory(nil, nil, false)
+      node = node_factory(:connection => false)
       rye = mock(Rye::Box)
       rye.should_receive(:disable_safe_mode)
       Rye::Box.should_receive(:new).with("mynode", {:user => "root"}).and_return(rye)
@@ -291,6 +294,15 @@ cd "/var/local/pocketknife/cache" &&
       node.pocketknife.should_receive(:verbosity).at_least(:once).and_return(false)
       node.should_receive(:install)
       node.should_receive(:execute).with("chef-solo -j /etc/chef/node.json", true)
+      node.stub(:say)
+
+      node.apply
+    end
+
+    it "should apply configuration with overridden runlist" do
+      node = node_factory :runlist => "myrunlist"
+      node.should_receive(:install)
+      node.should_receive(:execute).with("chef-solo -j /etc/chef/node.json -o myrunlist", true)
       node.stub(:say)
 
       node.apply

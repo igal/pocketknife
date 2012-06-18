@@ -124,7 +124,7 @@ OPTIONS:
 
       begin
         arguments = parser.parse!
-      rescue OptionParser::MissingArgument => e
+      rescue OptionParser::ParseError => e
         puts parser
         puts
         puts "ERROR: #{e}"

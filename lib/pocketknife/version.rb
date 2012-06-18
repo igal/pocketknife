@@ -6,7 +6,7 @@ class Pocketknife
     # @return [Integer] Major version.
     MAJOR = 0
     # @return [Integer] Minor version.
-    MINOR = 1
+    MINOR = 2
     # @return [Integer] Patch version.
     PATCH = 0
     # @return [Integer] Build version.

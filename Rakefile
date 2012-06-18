@@ -41,6 +41,7 @@ With pocketknife, all of your cookbooks, roles and nodes are stored in easy-to-u
     Gemfile
     LICENSE.txt
     README.md
+    CHANGES.md
     Rakefile
     lib/*
     spec/*

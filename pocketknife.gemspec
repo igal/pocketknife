@@ -4,21 +4,14 @@
 # -*- encoding: utf-8 -*-
 
 Gem::Specification.new do |s|
-  s.name = %q{pocketknife}
-  s.version = "0.1.0"
+  s.name = "pocketknife"
+  s.version = "0.2.0"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Igal Koshevoy"]
-  s.date = %q{2011-05-17}
-  s.description = %q{pocketknife is a devops tool for managing computers running chef-solo, powered by Opscode Chef.
-
-Using pocketknife, you create a project that describes the configuration of your computers and then deploy it to bring them to their intended state.
-
-With pocketknife, you don't need to setup or manage a specialized chef-server node or rely on an unreliable network connection to a distant hosted service whose security you don't control, deal with managing chef's security keys, or deal with manually synchronizing data with the chef-server datastore.
-
-With pocketknife, all of your cookbooks, roles and nodes are stored in easy-to-use files that you can edit, share, backup and version control with tools you already have.
-}
-  s.email = %q{igal+pocketknife@pragmaticraft.com}
+  s.date = "2012-06-18"
+  s.description = "pocketknife is a devops tool for managing computers running chef-solo, powered by Opscode Chef.\n\nUsing pocketknife, you create a project that describes the configuration of your computers and then deploy it to bring them to their intended state.\n\nWith pocketknife, you don't need to setup or manage a specialized chef-server node or rely on an unreliable network connection to a distant hosted service whose security you don't control, deal with managing chef's security keys, or deal with manually synchronizing data with the chef-server datastore.\n\nWith pocketknife, all of your cookbooks, roles and nodes are stored in easy-to-use files that you can edit, share, backup and version control with tools you already have.\n"
+  s.email = "igal+pocketknife@pragmaticraft.com"
   s.executables = ["pocketknife", "pocketknife"]
   s.extra_rdoc_files = [
     "LICENSE.txt",
@@ -26,9 +19,10 @@ With pocketknife, all of your cookbooks, roles and nodes are stored in easy-to-u
   ]
   s.files = [
     ".document",
+    ".travis.yml",
     ".yardopts",
+    "CHANGES.md",
     "Gemfile",
-    "Gemfile.lock",
     "LICENSE.txt",
     "README.md",
     "Rakefile",
@@ -38,6 +32,7 @@ With pocketknife, all of your cookbooks, roles and nodes are stored in easy-to-u
     "lib/pocketknife/node.rb",
     "lib/pocketknife/node_manager.rb",
     "lib/pocketknife/version.rb",
+    "lib/shellwords.rb",
     "pocketknife.gemspec",
     "spec/pocketknife_execution_error_spec.rb",
     "spec/pocketknife_node_manager_spec.rb",
@@ -45,46 +40,58 @@ With pocketknife, all of your cookbooks, roles and nodes are stored in easy-to-u
     "spec/pocketknife_spec.rb",
     "spec/spec_helper.rb",
     "spec/support/libraries.rb",
-    "spec/support/mkproject.rb"
+    "spec/support/mkproject.rb",
+    "spec/support/silence_stream.rb"
   ]
-  s.homepage = %q{http://github.com/igal/pocketknife}
+  s.homepage = "http://github.com/igal/pocketknife"
   s.licenses = ["MIT"]
   s.require_paths = ["lib"]
-  s.rubygems_version = %q{1.3.7}
-  s.summary = %q{pocketknife is a devops tool for managing computers running chef-solo, powered by Opscode Chef.}
+  s.rubygems_version = "1.8.11"
+  s.summary = "pocketknife is a devops tool for managing computers running chef-solo, powered by Opscode Chef."
 
   if s.respond_to? :specification_version then
-    current_version = Gem::Specification::CURRENT_SPECIFICATION_VERSION
     s.specification_version = 3
 
     if Gem::Version.new(Gem::VERSION) >= Gem::Version.new('1.2.0') then
       s.add_runtime_dependency(%q<archive-tar-minitar>, ["~> 0.5.0"])
       s.add_runtime_dependency(%q<rye>, ["~> 0.9.0"])
-      s.add_development_dependency(%q<bluecloth>, ["~> 2.1.0"])
-      s.add_development_dependency(%q<rspec>, ["~> 2.3.0"])
-      s.add_development_dependency(%q<yard>, ["~> 0.6.0"])
-      s.add_development_dependency(%q<bundler>, ["~> 1.0.0"])
-      s.add_development_dependency(%q<jeweler>, ["~> 1.6.0"])
+      s.add_development_dependency(%q<rake>, [">= 0"])
+      s.add_development_dependency(%q<bluecloth>, ["~> 2.2.0"])
+      s.add_development_dependency(%q<rspec>, ["~> 2.10.0"])
+      s.add_development_dependency(%q<yard>, ["~> 0.8.0"])
+      s.add_development_dependency(%q<jeweler>, ["~> 1.8.0"])
       s.add_development_dependency(%q<rcov>, [">= 0"])
+      s.add_development_dependency(%q<ruby-debug>, [">= 0"])
+      s.add_development_dependency(%q<simplecov>, [">= 0"])
+      s.add_development_dependency(%q<debugger-ruby_core_source>, [">= 0"])
+      s.add_development_dependency(%q<debugger>, [">= 0"])
     else
       s.add_dependency(%q<archive-tar-minitar>, ["~> 0.5.0"])
       s.add_dependency(%q<rye>, ["~> 0.9.0"])
-      s.add_dependency(%q<bluecloth>, ["~> 2.1.0"])
-      s.add_dependency(%q<rspec>, ["~> 2.3.0"])
-      s.add_dependency(%q<yard>, ["~> 0.6.0"])
-      s.add_dependency(%q<bundler>, ["~> 1.0.0"])
-      s.add_dependency(%q<jeweler>, ["~> 1.6.0"])
+      s.add_dependency(%q<rake>, [">= 0"])
+      s.add_dependency(%q<bluecloth>, ["~> 2.2.0"])
+      s.add_dependency(%q<rspec>, ["~> 2.10.0"])
+      s.add_dependency(%q<yard>, ["~> 0.8.0"])
+      s.add_dependency(%q<jeweler>, ["~> 1.8.0"])
       s.add_dependency(%q<rcov>, [">= 0"])
+      s.add_dependency(%q<ruby-debug>, [">= 0"])
+      s.add_dependency(%q<simplecov>, [">= 0"])
+      s.add_dependency(%q<debugger-ruby_core_source>, [">= 0"])
+      s.add_dependency(%q<debugger>, [">= 0"])
     end
   else
     s.add_dependency(%q<archive-tar-minitar>, ["~> 0.5.0"])
     s.add_dependency(%q<rye>, ["~> 0.9.0"])
-    s.add_dependency(%q<bluecloth>, ["~> 2.1.0"])
-    s.add_dependency(%q<rspec>, ["~> 2.3.0"])
-    s.add_dependency(%q<yard>, ["~> 0.6.0"])
-    s.add_dependency(%q<bundler>, ["~> 1.0.0"])
-    s.add_dependency(%q<jeweler>, ["~> 1.6.0"])
+    s.add_dependency(%q<rake>, [">= 0"])
+    s.add_dependency(%q<bluecloth>, ["~> 2.2.0"])
+    s.add_dependency(%q<rspec>, ["~> 2.10.0"])
+    s.add_dependency(%q<yard>, ["~> 0.8.0"])
+    s.add_dependency(%q<jeweler>, ["~> 1.8.0"])
     s.add_dependency(%q<rcov>, [">= 0"])
+    s.add_dependency(%q<ruby-debug>, [">= 0"])
+    s.add_dependency(%q<simplecov>, [">= 0"])
+    s.add_dependency(%q<debugger-ruby_core_source>, [">= 0"])
+    s.add_dependency(%q<debugger>, [">= 0"])
   end
 end
 

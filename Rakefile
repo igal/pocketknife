@@ -51,7 +51,7 @@ Jeweler::RubygemsDotOrgTasks.new
 
 desc "Run coverage report using simplecov."
 task :simplecov do
-  ENV['SIMPLECOV'] = "true"
+  ENV['SIMPLECOV'] = 'true'
   Rake::Task['spec'].invoke
 end
 
@@ -61,9 +61,37 @@ RSpec::Core::RakeTask.new(:spec) do |spec|
   spec.pattern = FileList['spec/**/*_spec.rb']
 end
 
-RSpec::Core::RakeTask.new(:rcov) do |spec|
-  spec.pattern = 'spec/**/*_spec.rb'
-  spec.rcov = true
+def rcov(options=[])
+  # None of the official ways to invoke Rcov work right now. Sigh.
+  cmd = "rcov --exclude osx\/objc,gems\/,spec\/,features\/,lib/shellwords.rb,lib/pocketknife/version.rb #{[options].flatten} $(which rspec) spec/*_spec.rb 2>&1"
+  puts cmd
+  output = `#{cmd}`
+  puts output
+  return output
+end
+
+RCOV_DATA = 'coverage/rcov.data'
+RCOV_LOG = 'coverage/rcov.txt'
+
+namespace :rcov do
+  desc "Save rcov information for use with rcov:diff"
+  task :save do
+    rcov "--save=#{RCOV_DATA}"
+  end
+
+  desc "Generate report of what code changed since last rcov:save"
+  task :diff do
+    output = rcov "--no-color --text-coverage-diff=#{RCOV_DATA}"
+    File.open(RCOV_LOG, 'w+') do |h|
+      h.write output
+    end
+    puts "\nSaved coverage report to: #{RCOV_LOG}"
+  end
+end
+
+desc  "Run all specs with rcov"
+task :rcov do
+  rcov
 end
 
 require 'yard'

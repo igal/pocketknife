@@ -9,6 +9,11 @@ Changes
     * Added shellwords to properly escape strings in commands.
     * Added clear success message and timer, suggested by Trip Leonard.
     * Added clearer error message when `nodes` directory is missing.
+    * Added support for travis-ci to test with various versions of Ruby.
+    * Fixed exception thrown if some directories were missing.
+    * Fixed CLI to catch all OptionParser errors.
+    * Reorganized errors into Pocketknife::Errors hierarchy, while using aliases to retain backwards compatibilty.
+    * Improved README and internal documentation.
 
 * 0.1.0
     * First release

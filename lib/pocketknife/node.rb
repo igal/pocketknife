@@ -336,7 +336,7 @@ cd #{VAR_POCKETKNIFE_CACHE.shellescape} &&
         HERE
 
       else
-        raise InvalidTransferMechanism.new(self.pocketknife.transfer_mechanism, self.name)
+        raise InvalidTransferMechanism.new(self.pocketknife.transfer_mechanism)
       end
 
       self.say("Finished uploading!", false)

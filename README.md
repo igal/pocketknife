@@ -38,7 +38,7 @@ Go into your new *project* directory:
 
     cd swa
 
-Create cookbooks in the `cookbooks` directory that describe how your computers should be configured. These are standard `chef` cookbooks, like the [opscode/cookbooks](https://github.com/opscode/cookbooks). For example, download a copy of [opscode/cookbooks/ntp](https://github.com/opscode/cookbooks/tree/master/ntp) as `cookbooks/ntp`.
+Create cookbooks in the `cookbooks` directory that describe how your computers should be configured. These are standard `chef` cookbooks, like the [opscode-cookbooks](https://github.com/opscode-cookbooks). For example, download a copy of [opscode-cookbooks/ntp](https://github.com/opscode-cookbooks/ntp) as `cookbooks/ntp`.
 
 Define a new node using the `chef` JSON syntax for [runlist](http://wiki.opscode.com/display/chef/Setting+the+run_list+in+JSON+during+run+time) and [attributes](http://wiki.opscode.com/display/chef/Attributes). For example, to define a node with the hostname `henrietta.swa.gov.it` create the `nodes/henrietta.swa.gov.it.json` file, and add the contents below so it uses the `ntp_client` role and overrides its attributes to use a local NTP server:
 
